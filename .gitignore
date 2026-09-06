@@ -1,0 +1,9 @@
+.DS_Store
+.env
+mise.local.toml
+node_modules/
+/public/
+/resources/
+/examples/site/public/
+/examples/site/resources/
+.hugo_build.lock
