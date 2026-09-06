@@ -16,7 +16,8 @@ When changing theme behavior, also inspect the rendered site in both color schem
 Create each branch in a dedicated Git worktree and open a Draft PR using `.github/PULL_REQUEST_TEMPLATE.md`.
 Use the four workflow skills in sequence: `push-pr-branch`, `self-review`, `self-review-round-two`, and `independent-review`.
 Record each review inline on relevant changed lines.
-Wait for the current `CI passed` check and completed reviews before marking the PR Ready; the maintainer merges it.
+Wait for the current `CI passed` check and the required review flow before marking the PR Ready; the maintainer merges it.
+The shared independent-review skill retains the original exception for a reviewer that cannot run, with the reason recorded; an uncollected result does not qualify.
 
 Keep shared instructions independent of consumer package names and build commands.
 Test installation changes through `just test`; use synthetic temporary projects rather than modifying a developer's global agent configuration.
