@@ -21,7 +21,8 @@ After the initial empty commit, every change goes through a Draft PR with filled
 Before every branch push, use `$push-pr-branch` and inspect the explicit deletion list.
 After Draft creation, use `$self-review`, `$self-review-round-two`, and `$independent-review` in that order.
 Record review feedback inline with an empty review body and a comments array.
-Only mark Ready after completed reviews and a successful current aggregate `CI passed` check.
+Only mark Ready after the required review flow and a successful current aggregate `CI passed` check.
+The restored independent-review skill retains the recorded unavailable-reviewer exception; a running or uncollected review is incomplete.
 The maintainer merges; clean up only the verified target when requested.
 
 Write all tracked text and GitHub content in English.
