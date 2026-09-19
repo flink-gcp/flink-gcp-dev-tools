@@ -56,6 +56,8 @@ The shared repository itself uses relative symlinks to its canonical `skills/` t
 
 The module preserves the existing flink-connector-gcp light/dark theme control, layout, and syntax palettes.
 It imports Hugo Book v0.14.0 and supplies `BookTheme = "auto"`.
+The shared search override waits for the index before querying it and searches the latest input when loading completes.
+Consumers use this implementation through the module instead of keeping a local `assets/search.js`.
 The consuming site enables class-based syntax highlighting explicitly, as shown below.
 Use Hugo Extended 0.164.0 and Go 1.26, as recorded in `mise.toml`.
 
@@ -79,7 +81,7 @@ Import it in the site's Hugo configuration:
 Commit the resulting `go.mod` and `go.sum`.
 Keep the highlighting setting in the consumer configuration; under Hugo's default merge rules, the module's `markup` configuration is not inherited.
 The site keeps its own title, base URL, repository links, content, source-snippet mounts, Javadoc generation, and Pages deployment workflow.
-Remove local copies of the six shared theme files during migration; Hugo gives local files precedence over module files.
+Remove local copies of the shared theme files listed in the [inventory](docs/inventory.md) during migration; Hugo gives local files precedence over module files.
 The [example site](examples/site/) demonstrates the import with a local replacement for development.
 The module owns the two `docs/inject` partials; a consumer adding content at those same hooks must deliberately compose or override them.
 
@@ -87,4 +89,6 @@ The module owns the two `docs/inject` partials; a consumer adding content at tho
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for commands and the PR workflow.
 The sources were extracted from the flink-gcp projects listed in the [inventory](docs/inventory.md).
-This repository uses [Apache License 2.0](LICENSE); the theme remains an external dependency with its own license.
+This repository uses [Apache License 2.0](LICENSE).
+Hugo Book remains a pinned dependency; the adapted `hugo/assets/search.js` preserves its upstream MIT notice.
+Review that override against the pinned theme when updating Hugo Book.

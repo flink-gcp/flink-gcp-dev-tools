@@ -12,6 +12,7 @@ The source repositories use Apache-2.0 with `The flink-gcp authors` as the proje
 | `hugo/assets/_custom.scss` | Connector `docs/assets/` | Keep the supported `BookTheme` and highlighting configuration |
 | `hugo/assets/_chroma-light.scss` and `_chroma-dark.scss` | Connector Hugo-generated palettes | Regenerate in the shared source with `just docs-chroma` |
 | `hugo/assets/theme-toggle.js` | Connector `docs/assets/` | Integrate with the module's theme control |
+| `hugo/assets/search.js` | Hugo Book v0.14.0 `assets/search.js`, with its MIT notice | Remove local search overrides to receive the shared readiness fix |
 | Two `hugo/layouts/_partials/docs/inject/` partials | Connector documentation layout | Deliberate composition if a site overrides these hooks |
 
 The skill directories include Codex UI metadata so synchronization preserves the connector's required display names and invocation prompts.
@@ -33,7 +34,9 @@ The following components remain with their consumers:
 - Repository identity, credentials, personal agent settings, and private memory.
 
 The source theme assets retain their behavior; comments omit measurements tied to the original site's content and clarify visibility and loading behavior.
-Hugo Book remains a pinned module dependency; its implementation is not copied into this repository.
+Hugo Book remains a pinned module dependency.
+The shared search override adapts its v0.14.0 asset with one readiness guard; the existing completion callback searches input entered during loading.
+Its source retains the upstream MIT notice, and theme updates must review the override.
 
 ## Restoration coverage
 

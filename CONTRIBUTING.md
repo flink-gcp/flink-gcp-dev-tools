@@ -10,7 +10,7 @@ mise x -- just docs
 ```
 
 The tests execute the installation recipe in temporary Git repositories with a controlled GitHub CLI response.
-The example site builds the local Hugo module with the pinned upstream theme and checks the rendered highlighting, stylesheet import, and theme control.
+The example site builds the local Hugo module with the pinned upstream theme and checks the rendered highlighting, stylesheet import, theme control, and search initialization with a deliberately unresolved index fetch.
 When changing theme behavior, also inspect the rendered site in both color schemes and at a narrow viewport.
 
 Create each branch in a dedicated Git worktree and open a Draft PR using `.github/PULL_REQUEST_TEMPLATE.md`.
