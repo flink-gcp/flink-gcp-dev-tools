@@ -23,6 +23,7 @@ The shared skill text owns the workflow rules, including their detailed procedur
 
 Distribute the visual design as a Hugo module because the existing connector site already uses Hugo modules for Hugo Book.
 Each site retains its content, URL configuration, compiled examples, API documentation, and deployment workflow.
+The module also owns the Hugo Book search readiness fix so consumers do not maintain separate copies of the upstream asset.
 Copy the small PR template when initializing or deliberately updating a consumer.
 
 Keep dotagents and the skills CLI as alternatives if broader agent configuration management becomes necessary.

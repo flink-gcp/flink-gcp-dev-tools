@@ -22,7 +22,7 @@ test:
 
 docs:
     cd examples/site && mise x hugo-extended go -- hugo --environment production --panicOnWarning
-    node --test tests/site/*.test.mjs
+    node --experimental-vm-modules --test tests/site/*.test.mjs
 
 docs-chroma:
     cd hugo && mise x hugo-extended -- hugo gen chromastyles --style=github > assets/_chroma-light.scss
