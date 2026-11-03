@@ -20,18 +20,33 @@ index arrives, so a change to hugo/assets/search.js needs a manual check in a br
 
 import base64
 import hashlib
+import html
 import json
 import re
 
 from site_output import HTML, PREFIX, built
 
 
+def attributes(tag: str) -> dict[str, str]:
+    """The tag's double-quoted attributes, decoded as a browser would read them."""
+    # Hugo escapes attribute values, so a "+" in a base64 digest appears in the page as "&#43;".
+    return {name: html.unescape(value) for name, value in re.findall(r'(\w+)="([^"]*)"', tag)}
+
+
 def search_module():
     tags = re.findall(r"<script\b[^>]*\bsrc=\"[^\"]*search[^\"/]*\.js\"[^>]*>", HTML)
     assert len(tags) == 1, tags
-    attributes = dict(re.findall(r'(\w+)="([^"]*)"', tags[0]))
-    assert attributes.get("type") == "module", tags[0]
-    return built(attributes["src"]), attributes.get("integrity")
+    found = attributes(tags[0])
+    assert found.get("type") == "module", tags[0]
+    return built(found["src"]), found.get("integrity")
+
+
+def test_attribute_values_are_read_with_character_references_decoded():
+    # Whether the built module's digest contains a "+", which Hugo escapes, depends on the site's
+    # content, so the integrity test alone would cover the escaped form only by chance.
+    # Hugo leaves "/" as it is, but a template change could escape it like any other character.
+    tag = '<script integrity="sha256-t7tGBj7&#43;IMPCjU&#43;58oYz&#x2F;IrrvaRU&#47;JlHmQqe7CM17V8=">'
+    assert attributes(tag) == {"integrity": "sha256-t7tGBj7+IMPCjU+58oYz/IrrvaRU/JlHmQqe7CM17V8="}
 
 
 def test_the_page_loads_the_search_module_it_built_with_a_matching_integrity_hash():
