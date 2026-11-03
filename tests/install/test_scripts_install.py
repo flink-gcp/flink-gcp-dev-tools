@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 import subprocess
 
@@ -23,7 +22,7 @@ from install_fixture import OTHER_REVISION, ROOT, Consumer, executable, tarball_
 
 @pytest.fixture
 def consumer(tmp_path):
-    return Consumer(tmp_path, "install-scripts")
+    return Consumer(tmp_path)
 
 
 def installed(consumer, name="central-portal.py"):
@@ -37,7 +36,7 @@ def shared(consumer, name="central-portal.py"):
 def test_the_recipe_installs_every_shared_tool_and_nothing_else():
     recipe = (ROOT / "examples" / "dev-tools.just").read_text()
     lists = re.findall(r"^ {4}scripts=\(([^)]*)\)$", recipe, re.MULTILINE)
-    assert len(lists) == 1, "examples/dev-tools.just must keep the install-scripts list on one scripts=(...) line"
+    assert len(lists) == 1, "examples/dev-tools.just must keep the shared tool list on one scripts=(...) line"
     # Every tracked top-level file under scripts/ is a shared tool; tests live in scripts/tests/.
     tracked = subprocess.run(["git", "ls-files", "--", ":(glob)scripts/*"], cwd=ROOT,
                              capture_output=True, text=True, check=True).stdout.split()
@@ -84,8 +83,8 @@ def test_installs_the_selected_revision_as_an_executable_and_preserves_consumer_
     local_test.write_text("# Consumer workflow tests.\n")
     result = consumer.install()
     assert result.returncode == 0, result.stderr
-    assert "Installed shared scripts" in result.stdout
-    assert json.loads(consumer.request.read_text()) == tarball_request()
+    assert "Installed workflow skills and shared tools" in result.stdout
+    assert consumer.requests() == [tarball_request()]
     assert installed(consumer).read_bytes() == (ROOT / "scripts" / "central-portal.py").read_bytes()
     assert executable(installed(consumer))
     assert local.read_text() == 'print("local")\n'

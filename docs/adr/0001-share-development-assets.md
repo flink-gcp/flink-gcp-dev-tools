@@ -67,7 +67,7 @@ Its bindings are already outside it: each release workflow chooses the staging c
 Both release workflows publish exactly two artifact lines, which matches the tool's two-ID `publish` command.
 
 Install shared tools as tracked copies at a full upstream commit SHA, the same way as the workflow skills.
-The `install-scripts` recipe writes each selected file to the consumer's existing path, so the consumer's recipes, workflows, and tests keep calling it unchanged.
+The installation recipe writes each selected file to the consumer's existing path, so the consumer's recipes, workflows, and tests keep calling it unchanged.
 It refuses to overwrite an uncommitted edit or an untracked file at a managed path.
 A committed local edit is replaced by the next sync and shows up in that update's diff, so a local fix does not survive unless it lands here.
 Consumers sync the skills and the tools together from the one revision pin.
