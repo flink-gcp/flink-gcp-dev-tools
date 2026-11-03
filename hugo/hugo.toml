@@ -12,9 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# These mounts decide which Hugo Book files every consuming site publishes, and
+# the theme-notices shortcode carries the notices for exactly those files.
+# favicon.svg is the web app manifest's icon. docs/adr/0002 records why the
+# KaTeX, Mermaid and asciinema-player features are excluded.
 [module]
   [[module.imports]]
     path = "github.com/alex-shpak/hugo-book"
+    [[module.imports.mounts]]
+      source = "assets"
+      target = "assets"
+    [[module.imports.mounts]]
+      source = "layouts"
+      target = "layouts"
+      files = [
+        "! /_markup/render-codeblock-katex.html",
+        "! /_markup/render-codeblock-mermaid.html",
+        "! /_shortcodes/asciinema.html",
+        "! /_shortcodes/katex.html",
+        "! /_shortcodes/mermaid.html",
+      ]
+    [[module.imports.mounts]]
+      source = "i18n"
+      target = "i18n"
+    [[module.imports.mounts]]
+      source = "static"
+      target = "static"
+      files = ["/favicon.png", "/favicon.svg", "/fuse.min.mjs"]
 
 [params]
   BookTheme = "auto"

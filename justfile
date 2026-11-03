@@ -34,9 +34,10 @@ test-scripts:
     uv run --locked --python {{ newest_python }} pytest scripts/tests
     uv run --locked --isolated --python 3.11 pytest scripts/tests
 
+# The Hugo Book tests build temporary copies of the site, so they need the pinned Hugo and Go too.
 docs:
     cd examples/site && mise x hugo-extended go -- hugo --environment production --panicOnWarning --cleanDestinationDir
-    uv run --locked --python {{ newest_python }} pytest tests/site
+    mise x hugo-extended go -- uv run --locked --python {{ newest_python }} pytest tests/site
 
 docs-chroma:
     cd hugo && mise x hugo-extended -- hugo gen chromastyles --style=github > assets/_chroma-light.scss

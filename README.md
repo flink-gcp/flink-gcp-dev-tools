@@ -77,7 +77,7 @@ Send behavior changes to this repository instead of editing the installed copy; 
 ## Use the documentation design
 
 The module preserves the existing flink-connector-gcp light/dark theme control, layout, and syntax palettes.
-It imports Hugo Book v0.14.0 and supplies `BookTheme = "auto"`.
+It imports Hugo Book v0.14.0, restricted to the files its notices cover, and supplies `BookTheme = "auto"`.
 The shared search override waits for the index before querying it and searches the latest input when loading completes.
 Consumers use this implementation through the module instead of keeping a local `assets/search.js`.
 The consuming site enables class-based syntax highlighting explicitly, as shown below.
@@ -105,7 +105,20 @@ Keep the highlighting setting in the consumer configuration; under Hugo's defaul
 The site keeps its own title, base URL, repository links, content, source-snippet mounts, Javadoc generation, and Pages deployment workflow.
 Remove local copies of the shared theme files listed in the [inventory](docs/inventory.md) during migration; Hugo gives local files precedence over module files.
 The [example site](examples/site/) demonstrates the import with a local replacement for development.
+Use a `go.mod` `replace` like it does to try a local module checkout; with `HUGO_MODULE_REPLACEMENTS`, Hugo cannot resolve the module's own Hugo Book import and may rewrite the site's `go.mod` to the latest Hugo Book.
 The module owns the two `docs/inject` partials; a consumer adding content at those same hooks must deliberately compose or override them.
+
+## Publish the theme's notices
+
+The module decides which Hugo Book files a site publishes and carries their notices, as [ADR-0002](docs/adr/0002-the-design-module-owns-the-theme-files-and-their-notices.md) records.
+From Hugo Book's `static/` directory it publishes only the two favicons and the Fuse.js search module.
+Hugo Book's KaTeX, Mermaid and asciinema-player features are excluded, so their shortcodes fail the build and their code blocks render as plain code.
+Import Hugo Book only through this module: do not set `ignoreImports` on it, and do not import Hugo Book before it, because the first import of a module decides its mounts.
+
+Add a hidden site licenses page that states the licence of the site's own sources and calls `{{% theme-notices %}}`, as the [example page](examples/site/content/docs/licenses.md) does.
+Use the `%` delimiters; with `<` the build still succeeds, but the page shows the notices' Markdown as text.
+The shortcode fails the build unless the site resolves the Hugo Book version its notices document, through this module's import, without a replacement, workspace or vendored copy.
+A consumer that requires another Hugo Book version itself therefore needs a module update first.
 
 ## Development and provenance
 
@@ -113,4 +126,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for commands and the PR workflow.
 The sources were extracted from the flink-gcp projects listed in the [inventory](docs/inventory.md).
 This repository uses [Apache License 2.0](LICENSE).
 Hugo Book remains a pinned dependency; the adapted `hugo/assets/search.js` preserves its upstream MIT notice.
-Review that override against the pinned theme when updating Hugo Book.
+Review that override and the notices against the new theme when updating Hugo Book, as ADR-0002 describes.

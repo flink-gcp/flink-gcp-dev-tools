@@ -15,6 +15,13 @@ The source repositories use Apache-2.0 with `The flink-gcp authors` as the proje
 | `hugo/assets/search.js` | Hugo Book v0.14.0 `assets/search.js`, with its MIT notice | Remove local search overrides to receive the shared readiness fix |
 | Two `hugo/layouts/_partials/docs/inject/` partials | Connector documentation layout | Deliberate composition if a site overrides these hooks |
 | `scripts/central-portal.py` | Identical code in both consumers' `scripts/`; see [Repository tools](#repository-tools) | Release workflow wiring, staging commands, credential mapping and their tests |
+| Hugo Book import and mounts in `hugo/hugo.toml` | Identical `docs/hugo.toml` blocks in both projects at the commits below | No `ignoreImports` on the module and no separate Hugo Book import |
+| `theme-notices` shortcode and `hugo/assets/dev-tools/notices/` | Both projects' site licenses pages and `hugo-book-version` shortcodes | A hidden site licenses page with the site's own licence statement |
+| `tests/site/test_site_hugo_book.py` | Protobuf `docs/tests/test_examples.py` fixture tests for the theme | Remove the duplicated theme tests |
+
+The theme restrictions, notices and tests come from flink-connector-gcp commit `f9553c59ebfd701da56286a9fb8eb4d28fae73a1` and flink-datastream-protobuf commit `86357e7e753a5160f0b99447b2f7c32413f43bb9`.
+The notice texts are unchanged; the module's shortcode starts after each page's statement about the site's own sources.
+The guard, now inside the shortcode, also rejects a Hugo Book import owned by another module, and its error messages name ADR-0002 instead of a consumer's guide, and ADR-0002 here records the notice policy that both projects' ADRs stated.
 
 The skill directories include Codex UI metadata so synchronization preserves the connector's required display names and invocation prompts.
 The initial shared skills copied the compact procedures extracted for the protobuf library.

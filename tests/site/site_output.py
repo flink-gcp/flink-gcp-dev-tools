@@ -15,15 +15,22 @@
 """The example site's build output, which `just docs` writes before running these tests."""
 
 from pathlib import Path
+from urllib.parse import urlsplit
 
-OUTPUT = Path(__file__).resolve().parents[2] / "examples" / "site" / "public"
+ROOT = Path(__file__).resolve().parents[2]
+EXAMPLE = ROOT / "examples" / "site"
+OUTPUT = EXAMPLE / "public"
 HTML = (OUTPUT / "index.html").read_text()
-# The example site's baseURL path, which stands in for a consumer's URL prefix.
-PREFIX = "/library/"
+# The example site's baseURL, whose path stands in for a consumer's URL prefix.
+BASE_URL = "https://example.invalid/library/"
+PREFIX = urlsplit(BASE_URL).path
 
 
-def built(url: str) -> Path:
+def built(url: str, referrer: str = "the test") -> Path:
+    """The published file for a URL under PREFIX; a URL ending in a slash names its index.html."""
     assert url.startswith(PREFIX), url
     path = OUTPUT / url.removeprefix(PREFIX)
-    assert path.is_file(), url
+    if url.endswith("/"):
+        path = path / "index.html"
+    assert path.is_file(), f"{referrer} names {url}, which the site does not publish"
     return path
