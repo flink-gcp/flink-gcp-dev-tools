@@ -34,11 +34,17 @@ UNITS = {
 FAKE_GIT = """\
 #!/usr/bin/env python3
 import os, subprocess, sys
-if sys.argv[1:2] == ["status"]:
-    sys.exit(1)
+if sys.argv[1:2] == [{subcommand!r}]:
+    sys.exit({status})
 env = dict(os.environ, PATH=os.environ["FIXTURE_BASE_PATH"])
 sys.exit(subprocess.run(["git", *sys.argv[1:]], env=env).returncode)
 """
+
+
+def failing_git(consumer, subcommand, status):
+    """Install a Git that fails one subcommand with the given status and returns the environment it needs."""
+    write_executable(consumer.bin / "git", FAKE_GIT.format(subcommand=subcommand, status=status))
+    return {"FIXTURE_BASE_PATH": os.environ["PATH"]}
 
 
 @pytest.fixture(params=UNITS)
@@ -99,9 +105,21 @@ def test_a_failed_git_status_preserves_the_installed_file(consumer):
     before = consumer.managed.read_bytes()
     consumer.shared.write_text("Upstream change.\n")
     consumer.pack()
-    write_executable(consumer.bin / "git", FAKE_GIT)
-    result = consumer.install(OTHER_REVISION, env={"FIXTURE_BASE_PATH": os.environ["PATH"]})
+    result = consumer.install(OTHER_REVISION, env=failing_git(consumer, "status", 1))
     assert result.returncode != 0
     # The download proves that the earlier Git calls succeeded and the status check failed.
+    assert json.loads(consumer.request.read_text()) == tarball_request(OTHER_REVISION)
+    assert consumer.managed.read_bytes() == before
+
+
+# git diff exits with 1 for a difference, so any other failure must stop instead of replacing the file.
+def test_a_failed_comparison_preserves_the_installed_file(consumer):
+    assert consumer.install().returncode == 0
+    consumer.commit()
+    before = consumer.managed.read_bytes()
+    consumer.shared.write_text("Upstream change.\n")
+    consumer.pack()
+    result = consumer.install(OTHER_REVISION, env=failing_git(consumer, "diff", 2))
+    assert result.returncode == 2
     assert json.loads(consumer.request.read_text()) == tarball_request(OTHER_REVISION)
     assert consumer.managed.read_bytes() == before

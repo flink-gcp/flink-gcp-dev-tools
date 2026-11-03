@@ -13,11 +13,13 @@
 # limitations under the License.
 
 import json
+import re
 import shutil
+import subprocess
 
 import pytest
 
-from install_fixture import OTHER_REVISION, REVISION, Consumer, executable, tarball_request
+from install_fixture import OTHER_REVISION, REVISION, ROOT, Consumer, executable, tarball_request
 
 SKILLS = ["push-pr-branch", "self-review", "self-review-round-two", "independent-review"]
 
@@ -33,6 +35,68 @@ def installed(consumer, *parts):
 
 def shared(consumer, *parts):
     return consumer.source.joinpath("skills", *parts)
+
+
+def test_the_recipe_installs_every_shared_skill_and_nothing_else():
+    recipe = (ROOT / "examples" / "dev-tools.just").read_text()
+    lists = re.findall(r"^ {4}skills=\(([^)]*)\)$", recipe, re.MULTILINE)
+    assert len(lists) == 1, "examples/dev-tools.just must keep the install-skills list on one skills=(...) line"
+    # Every tracked skills/<name>/SKILL.md is a shared skill.
+    tracked = subprocess.run(["git", "ls-files", "--", ":(glob)skills/*/SKILL.md"], cwd=ROOT,
+                             capture_output=True, text=True, check=True).stdout.split()
+    shared_skills = sorted(path.split("/")[1] for path in tracked)
+    assert sorted(lists[0].split()) == shared_skills
+    assert sorted(SKILLS) == shared_skills, "SKILLS must list every installed skill"
+
+
+@pytest.mark.parametrize(("link", "target"), [(".agents", "elsewhere"), (".agents/skills", "../elsewhere")])
+def test_rejects_a_symlinked_project_skill_directory_before_downloading(consumer, link, target):
+    elsewhere = consumer.project / "elsewhere"
+    elsewhere.mkdir()
+    path = consumer.project / link
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.symlink_to(target)
+    result = consumer.install()
+    assert result.returncode != 0
+    assert "must not be a symlink" in result.stderr
+    assert not consumer.request.exists()
+    assert not any(elsewhere.iterdir())
+
+
+def test_rejects_a_symlinked_skill_in_the_archive(consumer):
+    shutil.rmtree(shared(consumer, "self-review"))
+    shared(consumer, "self-review").symlink_to("push-pr-branch")
+    consumer.pack()
+    result = consumer.install()
+    assert result.returncode != 0
+    assert "Invalid skill directory" in result.stderr
+    assert not installed(consumer).exists()
+
+
+def test_rejects_a_symlinked_managed_skill_directory(consumer):
+    outside = consumer.project / "elsewhere" / "self-review"
+    shutil.copytree(shared(consumer, "self-review"), outside)
+    (outside / "SKILL.md").write_text("Outside the managed path.\n")
+    installed(consumer).mkdir(parents=True)
+    installed(consumer, "self-review").symlink_to("../../elsewhere/self-review")
+    consumer.commit()
+    result = consumer.install()
+    assert result.returncode != 0
+    assert "Invalid skill directory" in result.stderr
+    assert installed(consumer, "self-review").is_symlink()
+    assert (outside / "SKILL.md").read_text() == "Outside the managed path.\n"
+
+
+def test_preserves_an_ignored_consumer_file_inside_a_managed_skill(consumer):
+    (consumer.project / ".gitignore").write_text(".agents/skills/push-pr-branch/local.md\n")
+    assert consumer.install().returncode == 0
+    consumer.commit()
+    ignored = installed(consumer, "push-pr-branch", "local.md")
+    ignored.write_text("Ignored local notes.\n")
+    result = consumer.install()
+    assert result.returncode != 0
+    assert "local changes" in result.stderr
+    assert ignored.read_text() == "Ignored local notes.\n"
 
 
 def test_installs_the_selected_revision_including_resources_and_preserves_unrelated_skills(consumer):
