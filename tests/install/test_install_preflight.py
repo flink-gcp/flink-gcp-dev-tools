@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Scenarios that both installation recipes handle the same way."""
+"""Scenarios that the installation handles the same way for each unit."""
 
-import json
 import os
 from pathlib import Path
 import shutil
@@ -23,18 +22,17 @@ import pytest
 
 from install_fixture import OTHER_REVISION, Consumer, tarball_request, write_executable
 
-# Each recipe, one file it manages relative to the consumer and to the archive, and its success message.
+# For each unit, one managed item as the recipe names it, and one file in it relative to the consumer and to the archive.
 UNITS = {
-    "install-skills": (Path(".agents/skills/self-review/SKILL.md"), Path("skills/self-review/SKILL.md"),
-                       "Installed workflow skills"),
-    "install-scripts": (Path("scripts/central-portal.py"), Path("scripts/central-portal.py"),
-                        "Installed shared scripts"),
+    "skills": (".agents/skills/self-review", Path(".agents/skills/self-review/SKILL.md"),
+               Path("skills/self-review/SKILL.md")),
+    "scripts": ("scripts/central-portal.py", Path("scripts/central-portal.py"), Path("scripts/central-portal.py")),
 }
 
 FAKE_GIT = """\
 #!/usr/bin/env python3
 import os, subprocess, sys
-if sys.argv[1:2] == [{subcommand!r}]:
+if sys.argv[1:2] == [{subcommand!r}] and sys.argv[-1] == {item!r}:
     sys.exit({status})
 env = dict(os.environ, PATH=os.environ["FIXTURE_BASE_PATH"])
 sys.exit(subprocess.run(["git", *sys.argv[1:]], env=env).returncode)
@@ -42,22 +40,25 @@ sys.exit(subprocess.run(["git", *sys.argv[1:]], env=env).returncode)
 
 
 def failing_git(consumer, subcommand, status):
-    """Install a Git that fails one subcommand with the given status and returns the environment it needs."""
-    write_executable(consumer.bin / "git", FAKE_GIT.format(subcommand=subcommand, status=status))
+    """Install a Git that fails one subcommand for the unit's item and returns the environment it needs."""
+    write_executable(consumer.bin / "git", FAKE_GIT.format(subcommand=subcommand, status=status, item=consumer.item))
     return {"FIXTURE_BASE_PATH": os.environ["PATH"]}
 
 
 @pytest.fixture(params=UNITS)
 def consumer(request, tmp_path):
-    consumer = Consumer(tmp_path, request.param)
-    managed, shared, consumer.installed_message = UNITS[request.param]
+    consumer = Consumer(tmp_path)
+    consumer.item, managed, shared = UNITS[request.param]
     consumer.managed = consumer.project / managed
     consumer.shared = consumer.source / shared
     return consumer
 
 
-def test_rejects_a_moving_ref_before_accessing_github(consumer):
-    result = consumer.install("main")
+# A branch or tag moves, and an abbreviated or padded SHA is not the pinned commit the consumer reviewed.
+@pytest.mark.parametrize("ref", ["main", "v1.0.0", "a" * 7, "a" * 39, "a" * 41, "a" * 40 + "\n"],
+                         ids=["branch", "tag", "short-sha", "one-short", "one-long", "trailing-newline"])
+def test_rejects_anything_but_a_full_commit_sha_before_accessing_github(consumer, ref):
+    result = consumer.install(ref)
     assert result.returncode != 0
     assert "full commit SHA" in result.stderr
     assert not consumer.request.exists()
@@ -83,12 +84,12 @@ def test_rejects_installation_outside_a_git_checkout_before_downloading(consumer
     assert consumer.managed.read_text() == "Existing local copy.\n"
 
 
+# The fixture runs every installation with the system Bash.
 def test_repeating_installation_with_system_bash_before_committing_is_idempotent(consumer):
-    (consumer.bin / "bash").symlink_to("/bin/bash")
     assert consumer.install().returncode == 0
     result = consumer.install()
     assert result.returncode == 0, result.stderr
-    assert consumer.installed_message in result.stdout
+    assert "Installed workflow skills and shared tools" in result.stdout
     assert "unbound variable" not in result.stderr
 
 
@@ -108,7 +109,7 @@ def test_a_failed_git_status_preserves_the_installed_file(consumer):
     result = consumer.install(OTHER_REVISION, env=failing_git(consumer, "status", 1))
     assert result.returncode != 0
     # The download proves that the earlier Git calls succeeded and the status check failed.
-    assert json.loads(consumer.request.read_text()) == tarball_request(OTHER_REVISION)
+    assert consumer.requests()[-1] == tarball_request(OTHER_REVISION)
     assert consumer.managed.read_bytes() == before
 
 
@@ -121,5 +122,5 @@ def test_a_failed_comparison_preserves_the_installed_file(consumer):
     consumer.pack()
     result = consumer.install(OTHER_REVISION, env=failing_git(consumer, "diff", 2))
     assert result.returncode == 2
-    assert json.loads(consumer.request.read_text()) == tarball_request(OTHER_REVISION)
+    assert consumer.requests()[-1] == tarball_request(OTHER_REVISION)
     assert consumer.managed.read_bytes() == before

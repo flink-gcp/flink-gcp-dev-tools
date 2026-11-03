@@ -14,7 +14,7 @@ The four skills cover pushing a PR branch, two distinct self-review rounds, and 
 Repository commands, compatibility policies, release coordinates, and service-specific tests remain with each consumer.
 See the [sharing decision](docs/adr/0001-share-development-assets.md) and [source inventory](docs/inventory.md).
 
-## Install workflow skills
+## Install workflow skills and repository tools
 
 The installation recipe requires Bash, Git, GitHub CLI (`gh`), tar, and just.
 Use the supported versions of the agent applications in the consuming project.
@@ -27,12 +27,13 @@ import 'dev-tools.just'
 
 dev_tools_revision := "<full commit SHA>"
 
-skills-sync: (install-skills dev_tools_revision)
+dev-tools-sync: (install-dev-tools dev_tools_revision)
 ```
 
-Run `just skills-sync` at the consumer root and commit the installed `.agents/skills/` directories together with the revision pin.
-The recipe selects only `push-pr-branch`, `self-review`, `self-review-round-two`, and `independent-review`.
-It copies their supporting resources too and preserves unrelated skills.
+The recipe installs only the skills `push-pr-branch`, `self-review`, `self-review-round-two`, and `independent-review` under `.agents/skills/`, and the tool `scripts/central-portal.py`.
+It copies the skills' supporting resources too, and it preserves unrelated skills and every other file under `scripts/`.
+Run `just dev-tools-sync` at the consumer root and commit the installed copies together with the revision pin.
+The tool keeps its existing path, so the consumer's recipes and release workflow keep invoking it unchanged.
 Changing the revision and running the recipe produces the content diff to review in an update PR.
 The same procedure can return to a previous revision.
 
@@ -42,10 +43,15 @@ A tag may identify the requested version, but resolve it before writing the pin:
 gh api repos/flink-gcp/flink-gcp-dev-tools/commits/<tag> --jq .sha
 ```
 
-Installation downloads the archive at that SHA; it does not select a newer release.
-It checks that all four skills are present before replacing any of them and refuses to overwrite differing local edits or untracked resources in a managed directory.
+Installation downloads the archive at that SHA once; it does not select a newer release.
+It checks every selected skill and tool before replacing any of them, and it refuses to overwrite differing local edits or untracked files at a managed path.
+A committed edit to an installed copy is not protected: the next sync replaces it, and its diff then reverts that edit.
 Identical installed content is left alone, including on an immediate repeat before committing.
-Download or archive-validation failures leave the installed skills in place.
+Download or archive-validation failures leave the installed copies in place.
+If a replacement fails or the recipe is interrupted by SIGINT, SIGTERM, or SIGHUP, it restores every path it has already replaced, so the skills and the tool stay at one revision.
+A SIGKILL or a crash cannot be handled, and the sync then refuses the partial update as local changes.
+Discard it at the managed paths, for example with `git restore` and `git clean`, and run the sync again.
+If a restore itself fails, the recipe names each path it could not restore and where its previous copy remains.
 After a successful setup, the tracked copies are available offline and in fresh Git worktrees.
 No submodule or separately maintained shared checkout is required.
 
@@ -53,21 +59,18 @@ Keep repository-specific guidance in the consumer's `AGENTS.md` and references, 
 The consumer retains responsibility for its agent discovery paths; for the existing flink-gcp layout, `.claude/skills` points to `../.agents/skills`.
 The shared repository itself uses relative symlinks to its canonical `skills/` tree.
 
-## Install repository tools
+### Migrate from the earlier recipes
 
-The same `dev-tools.just` provides `install-scripts`, with the same requirements.
-A consumer that installs both units uses one pin for both, so sync them together:
+This file was named `examples/skills.just` before it gained the tool; consumer guidance that names the old path refers to the same file.
+Earlier versions provided `install-skills`, and later also `install-scripts`, instead of `install-dev-tools`.
+When re-copying the file, make these changes in the same consumer PR:
 
-```just
-dev-tools-sync: (install-skills dev_tools_revision) (install-scripts dev_tools_revision)
-```
+- Replace the `skills-sync: (install-skills dev_tools_revision)` recipe with the `dev-tools-sync` recipe above, and rename `skills-sync` wherever the consumer's guidance names it.
+- Update guidance that says the sync touches only `.agents/skills/`, because it now also manages `scripts/central-portal.py`.
+  The first sync replaces a committed copy of that file that differs from the pinned revision, so review its diff for local fixes that have not landed here.
+- Point a lint that extracts the installation script with `just --show` at `install-dev-tools`.
 
-Run `just dev-tools-sync` at the consumer root and commit the installed skills, `scripts/central-portal.py`, and the revision pin together.
-Running only one of the two recipes after changing the pin would leave the other unit at the previous revision with nothing to detect it.
-The scripts recipe writes the file to its existing path, so the consumer's recipes and release workflow keep invoking it unchanged.
-It applies the same SHA, validation, local-edit, and failure rules as the skills installation, and it leaves every other file under `scripts/` alone.
-The recipe refuses to overwrite uncommitted edits, but a committed edit to an installed copy is replaced by the next sync, whose diff then reverts that edit.
-This file was named `examples/skills.just` before it gained `install-scripts`; consumer guidance that names the old path refers to the same recipes.
+## Use the shared repository tools
 
 The shared tools import only the Python standard library and support Python 3.11 and later.
 Run them with the consumer's own interpreter; this repository's `pyproject.toml` and `uv.lock` serve only its tests and are not installed.

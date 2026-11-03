@@ -24,7 +24,7 @@ default:
 
 test: test-install test-scripts
 
-# The installation tests exercise the recipes under Bash, so one Python is enough to drive them.
+# The installation tests exercise the recipe under Bash, so one Python is enough to drive them.
 test-install:
     uv run --locked --python {{ newest_python }} pytest tests/install
 
@@ -43,8 +43,10 @@ docs-chroma:
     cd hugo && mise x hugo-extended -- hugo gen chromastyles --style=github > assets/_chroma-light.scss
     cd hugo && mise x hugo-extended -- hugo gen chromastyles --style=github-dark > assets/_chroma-dark.scss
 
+# Check the installation script the way a consumer's lint extracts it from the recipe.
 lint:
     mise x actionlint shellcheck -- actionlint
+    just --justfile examples/dev-tools.just --show install-dev-tools | sed -n '/^[[:space:]]*#!/,$p' | sed 's/^    //' | mise x shellcheck -- shellcheck -
     mise x rumdl -- rumdl check .
 
 pin-actions:

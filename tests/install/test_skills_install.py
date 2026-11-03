@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import re
 import shutil
 import subprocess
@@ -26,7 +25,7 @@ SKILLS = ["push-pr-branch", "self-review", "self-review-round-two", "independent
 
 @pytest.fixture
 def consumer(tmp_path):
-    return Consumer(tmp_path, "install-skills")
+    return Consumer(tmp_path)
 
 
 def installed(consumer, *parts):
@@ -40,7 +39,7 @@ def shared(consumer, *parts):
 def test_the_recipe_installs_every_shared_skill_and_nothing_else():
     recipe = (ROOT / "examples" / "dev-tools.just").read_text()
     lists = re.findall(r"^ {4}skills=\(([^)]*)\)$", recipe, re.MULTILINE)
-    assert len(lists) == 1, "examples/dev-tools.just must keep the install-skills list on one skills=(...) line"
+    assert len(lists) == 1, "examples/dev-tools.just must keep the skill list on one skills=(...) line"
     # Every tracked skills/<name>/SKILL.md is a shared skill.
     tracked = subprocess.run(["git", "ls-files", "--", ":(glob)skills/*/SKILL.md"], cwd=ROOT,
                              capture_output=True, text=True, check=True).stdout.split()
@@ -109,7 +108,7 @@ def test_installs_the_selected_revision_including_resources_and_preserves_unrela
     consumer.pack()
     result = consumer.install()
     assert result.returncode == 0, result.stderr
-    assert json.loads(consumer.request.read_text()) == tarball_request()
+    assert consumer.requests() == [tarball_request()]
     for skill in SKILLS:
         assert installed(consumer, skill, "SKILL.md").read_bytes() == shared(consumer, skill, "SKILL.md").read_bytes()
     assert installed(consumer, "self-review", "references", "example.md").read_text() == "A shared resource.\n"
@@ -181,3 +180,4 @@ def test_upgrades_remove_obsolete_resources_and_a_prior_pin_restores_them(consum
     result = consumer.install(REVISION)
     assert result.returncode == 0, result.stderr
     assert installed(consumer, "self-review", "old.md").read_text() == "Old version.\n"
+

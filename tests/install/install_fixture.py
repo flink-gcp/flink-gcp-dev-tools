@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -28,8 +29,8 @@ OTHER_REVISION = "b" * 40
 FAKE_GH = """\
 #!/usr/bin/env python3
 import json, os, sys
-with open(os.environ["FIXTURE_REQUEST"], "w") as request:
-    json.dump(sys.argv[1:], request)
+with open(os.environ["FIXTURE_REQUEST"], "a") as request:
+    request.write(json.dumps(sys.argv[1:]) + "\\n")
 if os.environ.get("FIXTURE_DOWNLOAD_FAIL") == "1":
     sys.exit(1)
 with open(os.environ["FIXTURE_ARCHIVE"], "rb") as archive:
@@ -55,14 +56,15 @@ def tarball_request(sha: str = REVISION) -> list[str]:
 
 
 class Consumer:
-    def __init__(self, temp: Path, recipe: str):
-        self.recipe = recipe
+    def __init__(self, temp: Path):
         self.project = temp / "project"
         self.source = temp / "archive" / "source"
         self.bin = temp / "bin"
         self.archive = temp / "source.tar.gz"
         self.request = temp / "request.json"
-        for directory in (self.project, self.source, self.bin):
+        # The recipe stages in TMPDIR, so tests can inspect what it leaves there and nothing leaks.
+        self.tmp = temp / "tmp"
+        for directory in (self.project, self.source, self.bin, self.tmp):
             directory.mkdir(parents=True)
         for directory in ("skills", "scripts"):
             shutil.copytree(ROOT / directory, self.source / directory, symlinks=True,
@@ -74,8 +76,11 @@ class Consumer:
         git(self.project, "config", "core.hooksPath", str(temp / "hooks"))
         git(self.project, "commit", "--quiet", "--allow-empty", "-m", "Initial fixture")
         write_executable(self.bin / "gh", FAKE_GH)
+        # Run the recipe with the system Bash, which is 3.2 on macOS, rather than a newer one on PATH.
+        (self.bin / "bash").symlink_to("/bin/bash")
         self.env = {**os.environ, "PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
-                    "FIXTURE_ARCHIVE": str(self.archive), "FIXTURE_REQUEST": str(self.request)}
+                    "FIXTURE_ARCHIVE": str(self.archive), "FIXTURE_REQUEST": str(self.request),
+                    "TMPDIR": str(self.tmp)}
         self.pack()
 
     def pack(self) -> None:
@@ -86,9 +91,13 @@ class Consumer:
                 cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["just", "--justfile", str(ROOT / "examples" / "dev-tools.just"),
-             "--working-directory", str(cwd or self.project), self.recipe, sha],
+             "--working-directory", str(cwd or self.project), "install-dev-tools", sha],
             env={**self.env, **(env or {})}, stdin=subprocess.DEVNULL, capture_output=True,
             text=True)
+
+    def requests(self) -> list[list[str]]:
+        """Return every GitHub CLI call so far, oldest first."""
+        return [json.loads(line) for line in self.request.read_text().splitlines()]
 
     def commit(self) -> None:
         git(self.project, "add", ".")

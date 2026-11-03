@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# The non-packaged root tests the shared Python tools, the installation recipes and the example site.
+# The non-packaged root tests the shared Python tools, the installation recipe and the example site.
 # The tools use only the standard library; consumers keep their own pyproject.toml and uv.lock.
 
 [project]
