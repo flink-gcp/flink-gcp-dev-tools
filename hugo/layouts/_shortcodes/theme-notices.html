@@ -1,0 +1,94 @@
+{{/*
+Copyright 2026 The flink-gcp authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/}}
+{{- /*
+  The notices for the theme files that this module lets a site publish, as
+  Markdown. Call it as {{% theme-notices %}} so that its headings reach the
+  page's table of contents. The calling page owns its title and the licence
+  statement for the site's own sources. docs/adr/0002 in flink-gcp-dev-tools
+  records which files the notices cover and how to update them.
+
+  The license texts are verbatim copies in assets/dev-tools/notices/, which
+  Markdown renders inside code fences; safeHTML keeps html/template from
+  escaping them first.
+
+  The notices hold only for the Hugo Book version below, imported through this
+  module's restricted mounts, so the build fails otherwise:
+
+  - Another version fails, so a pin that moves Hugo Book, here or in a
+    consuming site, fails until the notices follow.
+  - An import owned by another module fails, because the first import of a
+    module decides its mounts: a site importing Hugo Book before this module
+    publishes the whole theme, including files these notices do not cover.
+  - A replacement fails, because a local checkout cannot establish which
+    notices apply. A go.mod replace keeps the original version and reports the
+    replacement in .Replace; a HUGO_MODULE_REPLACEMENTS or workspace
+    replacement reports no version at all. A vendored module keeps the version
+    it was vendored at but reports no replacement, so vendoring fails too.
+*/ -}}
+{{- $hugoBook := "v0.14.0" -}}
+{{- $module := "github.com/flink-gcp/flink-gcp-dev-tools/hugo" -}}
+{{- $fix := "update the notices as docs/adr/0002 in flink-gcp-dev-tools describes" -}}
+{{- $resolved := "" -}}
+{{- range hugo.Deps -}}
+  {{- if eq .Path "github.com/alex-shpak/hugo-book" -}}
+    {{- with .Replace -}}
+      {{- errorf "%s: Hugo Book is replaced by %q, so the theme notices cannot document it; remove the replacement" $.Position .Path -}}
+    {{- end -}}
+    {{- if .Vendor -}}
+      {{- errorf "%s: Hugo Book is vendored, so the theme notices cannot verify its files; remove the _vendor directory" $.Position -}}
+    {{- end -}}
+    {{- with .Owner -}}
+      {{- if ne .Path $module -}}
+        {{- errorf "%s: Hugo Book is imported by %q rather than %q, so the site may publish theme files the notices do not cover; remove that import" $.Position .Path $module -}}
+      {{- end -}}
+    {{- end -}}
+    {{- $resolved = .Version -}}
+  {{- end -}}
+{{- end -}}
+{{- if not $resolved -}}
+  {{- errorf "%s: Hugo Book does not resolve to a module version, so the theme notices cannot document it; remove any module replacement or workspace" .Position -}}
+{{- else if ne $resolved $hugoBook -}}
+  {{- errorf "%s: the theme notices document Hugo Book %q, but the site resolves %q; keep the Hugo Book version that %s requires, or %s" .Position $hugoBook $resolved $module $fix -}}
+{{- end -}}
+The shared design's search script adapts Hugo Book's, whose notice follows.
+The site's theme is Hugo Book {{ $hugoBook }}, which compiles modern-normalize into the site's stylesheet and supplies the icons, the favicons, and the Fuse.js search module.
+The following notices accompany the theme and the third-party files it brings.
+
+## Hugo Book
+
+```text
+{{ (resources.Get "dev-tools/notices/hugo-book.txt").Content | chomp | safeHTML }}
+```
+
+## modern-normalize v3.0.1
+
+```text
+{{ (resources.Get "dev-tools/notices/modern-normalize.txt").Content | chomp | safeHTML }}
+```
+
+## Material Symbols
+
+Hugo Book's icons and favicons are Google's Material Symbols, distributed under the [Apache License, Version 2.0](#apache-license-version-20).
+
+## Fuse.js v7.3.0
+
+Fuse.js is Copyright (c) 2026 Kiro Risk and is distributed under the [Apache License, Version 2.0](#apache-license-version-20); the search module retains its notice.
+
+## Apache License, Version 2.0
+
+```text
+{{ (resources.Get "dev-tools/notices/apache-2.0.txt").Content | chomp | safeHTML }}
+```

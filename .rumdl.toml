@@ -18,5 +18,10 @@ disable = ["MD013"]
 # Without this, every rumdl run leaves .rumdl_cache/ in the checkout.
 cache = false
 
+# The licenses page has a front matter title and its own H1, as the consumers' pages do.
+# Two H1 headings still fail.
+[MD025]
+front-matter-title = ""
+
 [MD052]
 shortcut-syntax = true
