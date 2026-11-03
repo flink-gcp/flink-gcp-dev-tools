@@ -9,8 +9,11 @@ mise x -- just test
 mise x -- just docs
 ```
 
-The tests execute the installation recipe in temporary Git repositories with a controlled GitHub CLI response.
-The example site builds the local Hugo module with the pinned upstream theme and checks the rendered highlighting, stylesheet import, theme control, and search initialization with a deliberately unresolved index fetch.
+Every test is a pytest suite run through uv, and `just lint` checks Markdown with rumdl; the repository does not use Node.js.
+The installation tests execute both recipes in temporary Git repositories with a controlled GitHub CLI response.
+The script tests run the shared tools' suite with Python 3.14 and 3.11, including a check that each tool imports without site-packages.
+The example site builds the local Hugo module with the pinned upstream theme and checks the rendered highlighting, stylesheet import, theme control, and the files the search module references.
+No test executes the search module, so after changing `hugo/assets/search.js` also check in a browser that a query typed before the index loads shows results for the latest input once it arrives.
 When changing theme behavior, also inspect the rendered site in both color schemes and at a narrow viewport.
 
 Create each branch in a dedicated Git worktree and open a Draft PR using `.github/PULL_REQUEST_TEMPLATE.md`.
@@ -20,7 +23,8 @@ Wait for the current `CI passed` check and the required review flow before marki
 The shared independent-review skill retains the original exception for a reviewer that cannot run, with the reason recorded; an uncollected result does not qualify.
 
 Keep shared instructions independent of consumer package names and build commands.
-Test installation changes through `just test`; use synthetic temporary projects rather than modifying a developer's global agent configuration.
+Test installation changes through `just test-install`; use synthetic temporary projects rather than modifying a developer's global agent configuration.
+Add a shared tool to the `install-scripts` list together with its tests; the installation tests require the list to match the tracked top-level files in `scripts/`.
 Run `just docs-chroma` to regenerate the two syntax palettes when deliberately changing their Hugo-generated output.
 Use `just pin-actions` when adding or changing a GitHub Actions reference.
 

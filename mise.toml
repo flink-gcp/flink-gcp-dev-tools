@@ -14,10 +14,12 @@
 
 [tools]
 just = "1"
-node = "24"
 shellcheck = "0.11.0"
 actionlint = "1.7.12"
-"npm:markdownlint-cli2" = { version = "0.23.2", trust_policy_excludes = ["fastq@1.20.2"] }
+rumdl = "0.3.2"
 hugo-extended = "0.164.0"
 go = "1.26"
 pinact = "4"
+# Every test runs on Python; the shared tools also run on the lowest supported version.
+python = ["3.14", "3.11"]
+uv = "0.12.1"

@@ -54,3 +54,42 @@ The original unavailable-reviewer exception is part of the shared workflow: reco
 The original missing-plugin skip reason remains valid; a launched but uncollected review is incomplete.
 The two self-review rounds, inline records, current aggregate CI and maintainer merge remain required.
 Align consumer entrypoints with these rules instead of distributing a compact skill plus a second locally maintained procedure.
+
+## Amendment: share standard-library repository tools
+
+Both consumers keep repository tools under `scripts/`, and several have counterparts in the other consumer ([#5](https://github.com/flink-gcp/flink-gcp-dev-tools/issues/5)).
+The initial decision limited sharing to the skills, the PR template, and the Hugo module.
+The [inventory](../inventory.md#repository-tools) compares each candidate and separates its common behavior from the consumer's bindings.
+
+Share `scripts/central-portal.py`, the Central Portal staging-ID capture, publication, and drop tool.
+Its code is identical in both consumers; only the provenance comments differ.
+Its bindings are already outside it: each release workflow chooses the staging command and ID files and maps the credentials to the two environment variables the tool reads.
+Both release workflows publish exactly two artifact lines, which matches the tool's two-ID `publish` command.
+
+Install shared tools as tracked copies at a full upstream commit SHA, the same way as the workflow skills.
+The `install-scripts` recipe writes each selected file to the consumer's existing path, so the consumer's recipes, workflows, and tests keep calling it unchanged.
+It refuses to overwrite an uncommitted edit or an untracked file at a managed path.
+A committed local edit is replaced by the next sync and shows up in that update's diff, so a local fix does not survive unless it lands here.
+Consumers sync the skills and the tools together from the one revision pin.
+A behavior change to a shared tool lands here first and reaches each consumer in a reviewed update PR.
+
+Shared tools import only the Python standard library and support Python 3.11 and later.
+This repository tests them with Python 3.11 and with the newest Python a consumer pins.
+Its `pyproject.toml` and `uv.lock` cover only this repository's tests; they are not distributed.
+Each consumer keeps its own `pyproject.toml`, `uv.lock`, Python version, and test-only packages, and runs the installed copy with its usual interpreter.
+The shared distribution therefore adds no dependency resolution to the consumers.
+A shared tool that needs a third-party package would reopen this decision; inline script metadata run through `uv run --script` keeps such dependencies with the script and out of the consumer's lock, and should be weighed before packaging the tools.
+
+This repository owns the behavioral tests of each shared tool.
+Each consumer keeps the tests of its own bindings, such as release workflow ordering, the staging commands, and the credential mapping.
+A consumer may keep its copy of a shared tool's behavioral tests until its migration PR removes or adapts them.
+
+The other candidates stay with their consumers:
+
+- `scripts/docs-site.py` shares its planning, assembly, and navigation structure, but the copies differ in version policy and source preparation.
+  The protobuf copy publishes 0.x pre-releases as development milestones until its first stable release and adds link and source checks; the connector copy adapts the v1.0.0 homepage and sets the Maven version of each tagged source before building.
+  Each also runs different validation recipes and passes different Hugo parameters.
+  Sharing it now would require a configuration surface for those policies, and the Consequences above already name broad configuration generation as a reason to reassess the distribution choice.
+  Reassess once both consumers use the same version kinds and a single consumer-defined build recipe.
+- The connector's `scripts/rehearse-release.py` and the protobuf `scripts/release-artifacts.py` both rehearse Central bundles without uploading them, but they inspect different artifact sets with different rules and have no common implementation.
+- The importlib loader in each `scripts/tests/conftest.py` is a few lines of test code; the connector's file also defines that repository's own fixtures.

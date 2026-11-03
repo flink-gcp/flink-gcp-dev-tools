@@ -14,15 +14,29 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Keep test runs from writing bytecode beside the shared tools and the tests.
+export PYTHONDONTWRITEBYTECODE := "1"
+# The newest Python a consumer pins; mise.toml also provides the lowest supported one.
+newest_python := "3.14"
+
 default:
     @just --list
 
-test:
-    node --test tests/*.test.mjs
+test: test-install test-scripts
+
+# The installation tests exercise the recipes under Bash, so one Python is enough to drive them.
+test-install:
+    uv run --locked --python {{ newest_python }} pytest tests/install
+
+# Consumers run the shared tools with their own Python, so test the newest one they pin and the lowest supported.
+# The second run uses a temporary environment so that it does not rebuild .venv for another Python.
+test-scripts:
+    uv run --locked --python {{ newest_python }} pytest scripts/tests
+    uv run --locked --isolated --python 3.11 pytest scripts/tests
 
 docs:
-    cd examples/site && mise x hugo-extended go -- hugo --environment production --panicOnWarning
-    node --experimental-vm-modules --test tests/site/*.test.mjs
+    cd examples/site && mise x hugo-extended go -- hugo --environment production --panicOnWarning --cleanDestinationDir
+    uv run --locked --python {{ newest_python }} pytest tests/site
 
 docs-chroma:
     cd hugo && mise x hugo-extended -- hugo gen chromastyles --style=github > assets/_chroma-light.scss
@@ -30,7 +44,7 @@ docs-chroma:
 
 lint:
     mise x actionlint shellcheck -- actionlint
-    mise x npm:markdownlint-cli2 -- markdownlint-cli2
+    mise x rumdl -- rumdl check .
 
 pin-actions:
     mise x pinact -- pinact run

@@ -14,6 +14,7 @@ The source repositories use Apache-2.0 with `The flink-gcp authors` as the proje
 | `hugo/assets/theme-toggle.js` | Connector `docs/assets/` | Integrate with the module's theme control |
 | `hugo/assets/search.js` | Hugo Book v0.14.0 `assets/search.js`, with its MIT notice | Remove local search overrides to receive the shared readiness fix |
 | Two `hugo/layouts/_partials/docs/inject/` partials | Connector documentation layout | Deliberate composition if a site overrides these hooks |
+| `scripts/central-portal.py` | Identical code in both consumers' `scripts/`; see [Repository tools](#repository-tools) | Release workflow wiring, staging commands, credential mapping and their tests |
 
 The skill directories include Codex UI metadata so synchronization preserves the connector's required display names and invocation prompts.
 The initial shared skills copied the compact procedures extracted for the protobuf library.
@@ -30,6 +31,7 @@ The following components remain with their consumers:
 - Maven parent usage, dependencies, API compatibility policy, packaging, and publication configuration.
 - Connector-specific skills, module guidance, cloud test settings, and optional MCP configuration.
 - Hugo content, source-snippet shortcodes and validators, versioned-site assembly, Javadoc generation, and Pages deployment.
+- Repository tools under `scripts/` other than those listed in [Repository tools](#repository-tools), and the tests of every tool's repository bindings.
 - Tool pins needed by a particular repository's commands and workflow jobs.
 - Repository identity, credentials, personal agent settings, and private memory.
 
@@ -88,3 +90,22 @@ The original prerequisite's recorded skip reason for an unavailable plugin remai
 A running or uncollected review is incomplete and does not qualify.
 An available reviewer who authored part of the change is not independent; the original alternative-model/human rule still applies.
 Consumer updates must document this same default rather than keeping a connector-only override.
+
+## Repository tools
+
+The comparison used flink-connector-gcp commit `f9553c59ebfd701da56286a9fb8eb4d28fae73a1` and flink-datastream-protobuf commit `86357e7e753a5160f0b99447b2f7c32413f43bb9`.
+Both follow the same layout: executables with hyphenated names in `scripts/`, imported modules under `scripts/lib/`, and pytest tests under `scripts/tests/` that load the executables through importlib.
+Every candidate tool below imports only the Python standard library; the test loaders are pytest test code.
+The table lists the tools with a counterpart in the other consumer; a tool that exists in only one consumer stays there.
+
+| Tool | Common behavior | Repository-specific bindings | Decision |
+| --- | --- | --- | --- |
+| `central-portal.py` | Identical code: capture one deployment ID from the staging output, check both deployments before publishing either, wait up to three hours, resume with the same IDs, and drop only safe states | Release workflow steps, ID file locations, the staging command, and the mapping of repository secrets to `CENTRAL_TOKEN_USERNAME` and `CENTRAL_TOKEN_PASSWORD` | Shared |
+| `docs-site.py` | Plan from published GitHub releases and `docs/versions.toml`, build each line in a separate clean checkout, inject the version selector, write redirects, `robots.txt` and the sitemap index, and assemble the site | Version policy (protobuf 0.x development milestones until its first stable release; connector stable releases only), source preparation (connector v1.0.0 homepage adapter and Maven `versions:set`), validation recipes, Hugo parameters, and the protobuf-only `check`, `check-sources` and `prepare-api` commands | Stays with each consumer |
+| Connector `rehearse-release.py`, protobuf `release-artifacts.py` | Stage both artifact lines with `-DskipUpload=true` and inspect the bundles without credentials | Different artifact sets and inspection rules: connector bundle structure and signatures; protobuf class references, notices, sources, Javadoc, POM and release-line guard | Stays with each consumer |
+| `tests/conftest.py` loader | Import a hyphenated script as a module | The connector's file also defines its repository-specific fixtures | Stays with each consumer |
+
+The shared `central-portal.py` keeps the connector's code and the protobuf copy's docstring wording for resumption after an expired wait.
+Its comments name the consumer of each historical release, run and issue reference instead of an ADR number local to one consumer.
+Its tests merge both consumers' versions: the protobuf port is a superset of the connector's cases, with negative controls for the ID check before authentication, either missing credential, a failed publication, and drop's DELETE.
+Each consumer's release workflow tests stay in that consumer.

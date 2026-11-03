@@ -30,28 +30,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: just node hugo-extended go actionlint shellcheck npm:markdownlint-cli2
+          install_args: just python uv hugo-extended go actionlint shellcheck rumdl
       - run: just lint
       - run: just test
       - run: just docs
-  skills_macos:
+  install_macos:
     runs-on: macos-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
-          install_args: just node
+          install_args: just python uv
       - name: Verify compatibility with system Bash 3.2
         run: |
           /bin/bash --version
           /bin/bash -c '[[ ${BASH_VERSINFO[0]} == 3 && ${BASH_VERSINFO[1]} == 2 ]]'
-          just test
+          just test-install
   ci_passed:
     name: CI passed
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [verify, skills_macos]
+    needs: [verify, install_macos]
     if: ${{ always() }}
     steps:
       - name: Require every dependency to succeed
