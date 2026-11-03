@@ -1,10 +1,12 @@
 # Development guide for coding agents
 
-This repository owns shared workflow skills, a PR template, and a Hugo documentation module.
+This repository owns shared workflow skills, standard-library repository tools, a PR template, and a Hugo documentation module.
 Read `docs/adr/0001-share-development-assets.md` before changing distribution or ownership boundaries.
 Read `docs/inventory.md` before migrating a consumer.
 
-- `just test` executes installation scenarios in disposable Git repositories.
+- `just test` runs both test recipes below.
+- `just test-install` executes installation scenarios in disposable Git repositories.
+- `just test-scripts` tests the shared Python tools with Python 3.14 and 3.11 through uv.
 - `just lint` checks workflows and Markdown.
 - `just docs` builds the local Hugo module through the example site.
 - `just docs-chroma` regenerates the syntax palettes.
@@ -13,6 +15,8 @@ Read `docs/inventory.md` before migrating a consumer.
 Use `mise x -- just <recipe>` outside an activated shell.
 Run checks appropriate to the changed surfaces; this repository has no Maven build or cloud service tests.
 Keep consumer-specific verification commands and compatibility policies in the consumer's guidance.
+Shared Python tools must import only the standard library and run on Python 3.11 and later.
+Write tests with pytest and do not add Node.js tooling.
 Keep personal agent configuration, credentials, and memories outside the shared files.
 Use the skill-creator and english-tech-writing skills when available for their respective changes.
 

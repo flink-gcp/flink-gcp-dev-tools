@@ -1,11 +1,12 @@
 # flink-gcp development tools
 
-Shared workflow skills, a pull request template, and documentation design assets for flink-gcp projects.
+Shared workflow skills, repository tools, a pull request template, and documentation design assets for flink-gcp projects.
 Consumers select a version explicitly and review updates in their own repositories.
 
 | Component | Source | Consumer integration |
 | --- | --- | --- |
 | Push and review procedures | `skills/` | Tracked copies installed by a just recipe |
+| Central Portal publication tool | `scripts/central-portal.py` | Tracked copy installed by a just recipe |
 | Pull request template | `templates/PULL_REQUEST_TEMPLATE.md` | Copy into `.github/` |
 | Hugo Book design | `hugo/` | Hugo module pinned through `go.mod` and `go.sum` |
 
@@ -18,7 +19,7 @@ See the [sharing decision](docs/adr/0001-share-development-assets.md) and [sourc
 The installation recipe requires Bash, Git, GitHub CLI (`gh`), tar, and just.
 Use the supported versions of the agent applications in the consuming project.
 
-Copy [`examples/skills.just`](examples/skills.just) into a consumer as `dev-tools.just`, and import it from that repository's justfile.
+Copy [`examples/dev-tools.just`](examples/dev-tools.just) into a consumer as `dev-tools.just`, and import it from that repository's justfile.
 Set a full commit SHA from this repository in the tracked justfile:
 
 ```just
@@ -51,6 +52,27 @@ No submodule or separately maintained shared checkout is required.
 Keep repository-specific guidance in the consumer's `AGENTS.md` and references, outside these managed directories.
 The consumer retains responsibility for its agent discovery paths; for the existing flink-gcp layout, `.claude/skills` points to `../.agents/skills`.
 The shared repository itself uses relative symlinks to its canonical `skills/` tree.
+
+## Install repository tools
+
+The same `dev-tools.just` provides `install-scripts`, with the same requirements.
+A consumer that installs both units uses one pin for both, so sync them together:
+
+```just
+dev-tools-sync: (install-skills dev_tools_revision) (install-scripts dev_tools_revision)
+```
+
+Run `just dev-tools-sync` at the consumer root and commit the installed skills, `scripts/central-portal.py`, and the revision pin together.
+Running only one of the two recipes after changing the pin would leave the other unit at the previous revision with nothing to detect it.
+The scripts recipe writes the file to its existing path, so the consumer's recipes and release workflow keep invoking it unchanged.
+It applies the same SHA, validation, local-edit, and failure rules as the skills installation, and it leaves every other file under `scripts/` alone.
+The recipe refuses to overwrite uncommitted edits, but a committed edit to an installed copy is replaced by the next sync, whose diff then reverts that edit.
+This file was named `examples/skills.just` before it gained `install-scripts`; consumer guidance that names the old path refers to the same recipes.
+
+The shared tools import only the Python standard library and support Python 3.11 and later.
+Run them with the consumer's own interpreter; this repository's `pyproject.toml` and `uv.lock` serve only its tests and are not installed.
+Keep the consumer's credentials, workflow steps, and tests of that wiring in the consumer.
+Send behavior changes to this repository instead of editing the installed copy; the [ADR amendment](docs/adr/0001-share-development-assets.md#amendment-share-standard-library-repository-tools) records which tools are shared.
 
 ## Use the documentation design
 

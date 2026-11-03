@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Copy this recipe into the consumer's justfile, or import this file from it.
+# Copy these recipes into the consumer's justfile, or import this file from it.
 # Keep the selected full commit SHA in the consumer's tracked configuration.
 
 [positional-arguments]
@@ -59,3 +59,48 @@ install-skills revision:
       done
     fi
     printf 'Installed workflow skills from %s. Review and commit the skill files and revision pin.\n' "$revision"
+
+[positional-arguments]
+install-scripts revision:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    revision="$1"
+    [[ "$revision" =~ ^[0-9a-f]{40}$ ]] || { echo 'Use a full commit SHA.' >&2; exit 1; }
+    prefix="$(git rev-parse --show-prefix)"
+    [[ -z "$prefix" ]] || { echo 'Run from the repository root.' >&2; exit 1; }
+    [[ ! -L scripts ]] || { echo 'The project scripts directory must not be a symlink.' >&2; exit 1; }
+    scripts=(central-portal.py)
+    staging="$(mktemp -d)"
+    trap 'rm -rf "$staging"' EXIT
+    gh api "repos/flink-gcp/flink-gcp-dev-tools/tarball/$revision" > "$staging/source.tar.gz"
+    mkdir "$staging/source"
+    tar -xzf "$staging/source.tar.gz" --strip-components=1 -C "$staging/source"
+    changed=()
+    for script in "${scripts[@]}"; do
+      source="$staging/source/scripts/$script"
+      target="scripts/$script"
+      [[ -f "$source" && ! -L "$source" && ! -L "$target" && ! -d "$target" ]] || { echo "Invalid script: $script" >&2; exit 1; }
+      if [[ -f "$target" ]]; then
+        if git diff --no-index --no-ext-diff --no-textconv --quiet -- "$source" "$target"; then
+          continue
+        else
+          comparison_status=$?
+          [[ "$comparison_status" -eq 1 ]] || exit "$comparison_status"
+        fi
+      fi
+      status="$(git status --porcelain --untracked-files=all --ignored -- "$target")"
+      [[ -z "$status" ]] || { echo "Commit or preserve local changes in $target before installing." >&2; exit 1; }
+      changed+=("$script")
+    done
+    mkdir -p scripts
+    if ((${#changed[@]})); then
+      for script in "${changed[@]}"; do
+        target="scripts/$script"
+        if [[ -e "$target" ]]; then mv "$target" "$staging/previous-$script"; fi
+        if ! mv "$staging/source/scripts/$script" "$target"; then
+          if [[ -e "$staging/previous-$script" ]]; then mv "$staging/previous-$script" "$target"; fi
+          exit 1
+        fi
+      done
+    fi
+    printf 'Installed shared scripts from %s. Review and commit the script files and revision pin.\n' "$revision"
