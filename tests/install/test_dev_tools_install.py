@@ -18,11 +18,11 @@ import os
 
 import pytest
 
-from install_fixture import OTHER_REVISION, ROOT, Consumer, tarball_request, write_executable
+from install_fixture import OTHER_REVISION, ROOT, Consumer, git, tarball_request, write_executable
 
 # Logs every move as "<origin> <managed path> <status>". It fails the moves listed in FIXTURE_MV_FAIL, copies and
 # then fails those in FIXTURE_MV_COPY_FAIL as a move across file systems can, and after completing a move listed in
-# FIXTURE_MV_SIGNAL it sends SIGTERM to the recipe's shell.
+# FIXTURE_MV_SIGNAL or FIXTURE_MV_KILL it sends SIGTERM or SIGKILL to the recipe's shell.
 # The origin is "source" for a move from the extracted archive, "previous" for a restore, and
 # "project" for moving an installed copy aside.
 FAKE_MV = """\
@@ -52,6 +52,8 @@ with open(os.environ["FIXTURE_MV_LOG"], "a") as log:
     log.write(f"{origin} {path} {status}\\n")
 if move in os.environ.get("FIXTURE_MV_SIGNAL", "").split(","):
     os.kill(os.getppid(), signal.SIGTERM)
+if move in os.environ.get("FIXTURE_MV_KILL", "").split(","):
+    os.kill(os.getppid(), signal.SIGKILL)
 sys.exit(status)
 """
 
@@ -96,16 +98,17 @@ def change_both_units(consumer):
     consumer.pack()
 
 
-def install_logging_moves(consumer, fail=(), interrupt=(), removals=(), copy_fail=()):
+def install_logging_moves(consumer, fail=(), interrupt=(), removals=(), copy_fail=(), kill=()):
     """Install OTHER_REVISION through the logging fake mv and return the result and the logged moves."""
     write_executable(consumer.bin / "mv", FAKE_MV)
     write_executable(consumer.bin / "rm", FAKE_RM)
     log = consumer.project.parent / "mv.log"
-    log.touch()
+    log.write_text("")
     result = consumer.install(OTHER_REVISION, env={
         "FIXTURE_BASE_PATH": os.environ["PATH"], "FIXTURE_MV_LOG": str(log),
         "FIXTURE_MV_FAIL": ",".join(fail), "FIXTURE_MV_SIGNAL": ",".join(interrupt),
-        "FIXTURE_RM_FAIL": ",".join(removals), "FIXTURE_MV_COPY_FAIL": ",".join(copy_fail)})
+        "FIXTURE_RM_FAIL": ",".join(removals), "FIXTURE_MV_COPY_FAIL": ",".join(copy_fail),
+        "FIXTURE_MV_KILL": ",".join(kill)})
     return result, log.read_text().splitlines()
 
 
@@ -263,3 +266,53 @@ def test_a_move_aside_that_fails_after_copying_keeps_both_copies(consumer):
     assert installed_skill(consumer).read_bytes() == skill_before
     (staging,) = consumer.tmp.iterdir()
     assert f"The previous copy of {SCRIPT} remains at {staging / 'previous'}/" in result.stderr
+
+
+def assert_only_killed_staging_remains(consumer, skill_before):
+    """Nothing cleans up after SIGKILL, and a rerun must not remove the copy the killed run moved aside."""
+    (staging,) = consumer.tmp.iterdir()
+    assert (staging / "previous" / "0" / "SKILL.md").read_bytes() == skill_before
+
+
+def test_a_rerun_after_a_kill_between_replacements_installs_the_rest(consumer):
+    assert consumer.install().returncode == 0
+    consumer.commit()
+    skill_before = installed_skill(consumer).read_bytes()
+    change_both_units(consumer)
+    # SIGKILL cannot be trapped, so the skill stays replaced and the script keeps its committed copy.
+    result, moves = install_logging_moves(consumer, kill=[f"source:{SKILL}"])
+    assert result.returncode != 0
+    assert moves[-1] == f"source {SKILL} 0"
+    assert installed_skill(consumer).read_text() == "Upstream change.\n"
+    # The replaced skill is identical to the source, so the rerun skips it instead of refusing it.
+    rerun, moves = install_logging_moves(consumer)
+    assert rerun.returncode == 0, rerun.stderr
+    assert [move for move in moves if move.startswith("source ")] == [f"source {SCRIPT} 0"]
+    assert installed_skill(consumer).read_text() == "Upstream change.\n"
+    assert installed_script(consumer).read_text() == "# Upstream change.\n"
+    assert_only_killed_staging_remains(consumer, skill_before)
+
+
+def test_a_rerun_after_a_kill_mid_move_refuses_that_path_until_it_is_restored(consumer):
+    assert consumer.install().returncode == 0
+    consumer.commit()
+    skill_before = installed_skill(consumer).read_bytes()
+    change_both_units(consumer)
+    # The kill arrives after the skill is moved aside and before its new copy is moved in.
+    result, moves = install_logging_moves(consumer, kill=[f"project:{SKILL}"])
+    assert result.returncode != 0
+    assert moves[-1] == f"project {SKILL} 0"
+    assert not installed_skill(consumer).exists()
+    assert_only_killed_staging_remains(consumer, skill_before)
+    # The refused rerun replaces nothing, including the script that still needs updating.
+    refused, moves = install_logging_moves(consumer)
+    assert refused.returncode != 0
+    assert f"Commit or preserve local changes in {SKILL} before installing." in refused.stderr
+    assert moves == []
+    assert_only_killed_staging_remains(consumer, skill_before)
+    git(consumer.project, "restore", "--", SKILL)
+    rerun, _ = install_logging_moves(consumer)
+    assert rerun.returncode == 0, rerun.stderr
+    assert installed_skill(consumer).read_text() == "Upstream change.\n"
+    assert installed_script(consumer).read_text() == "# Upstream change.\n"
+    assert_only_killed_staging_remains(consumer, skill_before)
