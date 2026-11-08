@@ -171,7 +171,13 @@ describe() {
   else
     release="[\`$LABEL\`]($SHARED_URL/releases/tag/$LABEL)"
   fi
-  if matches="$(git grep -n -F "$PREVIOUS" -- . ':!docs/go.sum')"; then
+  # A permalink cites a file as it read at that commit, so a line naming the commit only in
+  # permalinks stays true after the update and is left out. A full SHA after /blob/ or /tree/ is
+  # a permalink only when a path, a fragment, a query or the end of a link or Markdown span follows
+  # it. Anything else may continue a branch name such as <sha>-fix, so its line stays listed, which
+  # costs the reader one line rather than hiding one. The loop keeps the character for the next match.
+  if matches="$(git grep -n -F "$PREVIOUS" -- . ':!docs/go.sum')" &&
+    matches="$(sed -E -e :a -e "s@/(blob|tree)/$PREVIOUS([]/#?)>\"'\`*[:space:]]|\$)@\\2@" -e ta <<< "$matches" | grep -F "$PREVIOUS")"; then
     mentions=$'\nThese lines still name the previous commit; update the ones that describe the current pin:\n\n'
     # shellcheck disable=SC2016 # The replacement writes a Markdown code span.
     mentions+="$(sed -E 's/^([^:]*:[0-9]*):.*/- `\1`/' <<< "$matches")"$'\n'
