@@ -49,8 +49,10 @@ A committed edit to an installed copy is not protected: the next sync replaces i
 Identical installed content is left alone, including on an immediate repeat before committing.
 Download or archive-validation failures leave the installed copies in place.
 If a replacement fails or the recipe is interrupted by SIGINT, SIGTERM, or SIGHUP, it restores every path it has already replaced, so the skills and the tool stay at one revision.
-A SIGKILL or a crash cannot be handled, and the sync then refuses the partial update as local changes.
-Discard it at the managed paths, for example with `git restore` and `git clean`, and run the sync again.
+A SIGKILL or a crash cannot be handled, so it can leave some paths replaced and the rest unchanged.
+Running the sync again skips each path already identical to the pinned revision and installs the rest.
+If `git status` reports changes at a path the kill left mid-move, such as a tracked path now missing or a partial copy, that rerun refuses it as local changes and replaces nothing; discard that path, for example with `git restore` and `git clean`, and run the sync again.
+The interrupted run leaves its `dev-tools.*` temporary directory under `TMPDIR`, or `/tmp` when that is unset, with the previous copy of any path it had moved aside in `previous/`.
 If a restore itself fails, the recipe names each path it could not restore and where its previous copy remains.
 After a successful setup, the tracked copies are available offline and in fresh Git worktrees.
 No submodule or separately maintained shared checkout is required.
