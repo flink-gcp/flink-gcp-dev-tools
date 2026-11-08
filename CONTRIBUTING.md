@@ -9,7 +9,7 @@ mise x -- just test
 mise x -- just docs
 ```
 
-Every test is a pytest suite run through uv, and `just lint` checks Markdown with rumdl and the installation script with shellcheck; the repository does not use Node.js.
+Every test is a pytest suite run through uv, and `just lint` checks Markdown with rumdl and the installation and workflow scripts with shellcheck; the repository does not use Node.js.
 The installation tests execute the recipe in temporary Git repositories with a controlled GitHub CLI response, including failed and interrupted replacements.
 The script tests run the shared tools' suite with Python 3.14 and 3.11, including a check that each tool imports without site-packages.
 The example site builds the local Hugo module with the pinned upstream theme and checks the rendered highlighting, stylesheet import, theme control, and the files the search module references.
@@ -28,6 +28,34 @@ Test installation changes through `just test-install`; use synthetic temporary p
 Add a shared tool to the `scripts` list in `install-dev-tools` together with its tests; the installation tests require the list to match the tracked top-level files in `scripts/`.
 Run `just docs-chroma` to regenerate the two syntax palettes when deliberately changing their Hugo-generated output.
 Use `just pin-actions` when adding or changing a GitHub Actions reference.
+
+## Cut a release
+
+Tag a commit on `main` when its changes should reach the consumers; commits that are not worth an update PR wait for the next tag.
+Choose the version as the [ADR amendment](docs/adr/0001-share-development-assets.md#versions-and-tags) describes.
+Push the tag at the current `main`, which starts the `Update consumers` workflow, and then create its release notes, describing any required consumer migration in them:
+
+```sh
+git fetch origin
+git tag vX.Y.Z origin/main
+git push origin vX.Y.Z
+gh release create vX.Y.Z --verify-tag --generate-notes
+```
+
+Check that each consumer's prepare and propose jobs succeeded.
+Every run proposes the latest release on `main`, whichever tag started it.
+To propose it again, for example after finishing a branch that blocked it, run the workflow manually:
+
+```sh
+gh workflow run update-consumers.yaml
+```
+
+The workflow needs the `BOT_APP_ID` variable and the `BOT_APP_PRIVATE_KEY` secret of `flink-gcp-bot` in this repository.
+A pull request that changes what reaches the consumers also runs the prepare job against its head as a dry run.
+Its job summary shows the PR description and the start of the patch each consumer would receive, and the job's artifact holds the whole patch.
+`just test-workflow` tests the workflow's steps against disposable repositories.
+
+## Conventions
 
 Write documentation, code comments, commits, and GitHub text in English.
 Use Apache-2.0 headers with `The flink-gcp authors`, preserving third-party provenance.

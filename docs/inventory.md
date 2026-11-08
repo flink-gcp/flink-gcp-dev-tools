@@ -47,6 +47,21 @@ Hugo Book remains a pinned module dependency.
 The shared search override adapts its v0.14.0 asset with one readiness guard; the existing completion callback searches input entered during loading.
 Its source retains the upstream MIT notice, and theme updates must review the override.
 
+## Release updates
+
+The `Update consumers` workflow proposes each release tag to the consumers in its matrix, as the [ADR amendment](adr/0001-share-development-assets.md#amendment-propose-each-release-to-the-consumers-from-a-bot) records.
+A consumer in that matrix provides:
+
+- a root `justfile` that imports a tracked `dev-tools.just` copied from `examples/`;
+- exactly one `dev_tools_revision := "<full SHA>"` line in that justfile;
+- a `dev-tools-sync` recipe that installs from that pin, as the README shows;
+- a Hugo site in `docs/` whose `go.mod` and `go.sum` pin the module at the same commit;
+- a `.github/PULL_REQUEST_TEMPLATE.md` with `## WHAT` and `## WHY` headings, if it has a template;
+- `flink-gcp-bot` installed with contents and pull-requests write;
+- the review rule for the bot's PRs in its own guidance.
+
+A consumer joins with a line in both jobs' matrices.
+
 ## Restoration coverage
 
 The source for every row below is the connector commit named in the procedure inventory.

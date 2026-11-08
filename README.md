@@ -72,6 +72,19 @@ When re-copying the file, make these changes in the same consumer PR:
   The first sync replaces a committed copy of that file that differs from the pinned revision, so review its diff for local fixes that have not landed here.
 - Point a lint that extracts the installation script with `just --show` at `install-dev-tools`.
 
+## Receive release updates
+
+Each release tag `vX.Y.Z` here opens or updates a Draft PR named `Update flink-gcp-dev-tools to vX.Y.Z` in every consumer listed in the [`Update consumers`](.github/workflows/update-consumers.yaml) workflow, always for the latest release.
+The PR comes from the `dev-tools/update` branch, authored by `flink-gcp-bot`.
+It replaces `dev-tools.just` with the tagged commit's copy, moves `dev_tools_revision` to that commit and runs the sync as described above, and moves the Hugo module as described below, followed by `hugo mod tidy`.
+Its description links the shared changes since the previous pin and lists the consumer's lines that still name the previous commit.
+The [ADR amendment](docs/adr/0001-share-development-assets.md#amendment-propose-each-release-to-the-consumers-from-a-bot) records how the bot behaves and how its PRs are reviewed, and the [inventory](docs/inventory.md#release-updates) lists what a consumer provides for it.
+
+In a consumer, write guidance that does not repeat the pinned SHA, so an update needs no manual edit.
+A release that requires migration may fail to prepare instead of opening a PR; its release notes then describe the migration.
+The bot does not replace an update branch that carries a commit anyone else authored or amended, so finish or delete such a branch before the next release.
+Updating a consumer by hand, at any commit from `main`, remains possible.
+
 ## Use the shared repository tools
 
 The shared tools import only the Python standard library and support Python 3.11 and later.

@@ -93,3 +93,78 @@ The other candidates stay with their consumers:
   Reassess once both consumers use the same version kinds and a single consumer-defined build recipe.
 - The connector's `scripts/rehearse-release.py` and the protobuf `scripts/release-artifacts.py` both rehearse Central bundles without uploading them, but they inspect different artifact sets with different rules and have no common implementation.
 - The importlib loader in each `scripts/tests/conftest.py` is a few lines of test code; the connector's file also defines that repository's own fixtures.
+
+## Amendment: propose each release to the consumers from a bot
+
+Each update PR was written by hand, so small shared fixes did not reach the consumers ([#17](https://github.com/flink-gcp/flink-gcp-dev-tools/issues/17)).
+The README correction in [#16](https://github.com/flink-gcp/flink-gcp-dev-tools/pull/16), for example, was judged not worth a PR in each consumer.
+
+A release tag `vX.Y.Z` on a commit from `main` is the maintainer's decision to distribute that commit.
+The `Update consumers` workflow then proposes the latest release to each consumer in its matrix, authenticated as the organization's `flink-gcp-bot` GitHub App.
+For each consumer it sets `dev_tools_revision` to that release's full commit SHA, replaces `dev-tools.just` with that commit's `examples/dev-tools.just`, runs `just dev-tools-sync`, and moves the Hugo module in `docs/` to the same commit with `hugo mod get` and `hugo mod tidy`.
+It commits the result to the branch `dev-tools/update` and opens or updates a Draft PR whose body fills the consumer's WHAT and WHY sections.
+The body links the shared changes since the previous pin and lists the consumer's lines that still name the previous commit, because guidance that states the current pin needs a manual edit.
+Commits on `main` that are not worth an update wait for the next tag, so the bot never proposes an untagged commit.
+
+The bot prepares the PR that a maintainer would otherwise write; it never marks the PR Ready or merges it.
+Consumers therefore still select the shared version explicitly, because a pin moves only when a maintainer merges that reviewed PR.
+The pin stays a full commit SHA, and the consumer's installation recipe is unchanged.
+The amendment adds no dependency resolution, configuration generation, or policy merging to the consumers, so it does not trigger the reassessment named in the Consequences.
+
+### Behavior of the update workflow
+
+Every release run proposes the latest release: the highest `vX.Y.Z` tag on `main`, whichever tag or manual run started it.
+Release runs go one at a time, so no run decides from a state that another run is changing.
+GitHub replaces a pending run with the next one, which resolves the latest release when it starts, so a replaced or late run can neither hold back nor undo a newer release.
+A run whose prepared update is for an older release than the latest, because a tag arrived in between, leaves the proposal to the run that tag started.
+
+The workflow keeps one update branch and at most one open update PR per consumer.
+It refuses a release that does not descend from the consumer's current pin, and it refuses to replace an update branch that carries a commit authored or committed by anyone other than the bot, whether or not a PR is open from it.
+A newer release returns a Ready PR to Draft before it force-pushes the branch, because the new content has not been reviewed, and then retitles the PR.
+It reads the PR's state again just before the push and just after it, so that a PR a maintainer marked Ready during the run also returns to Draft.
+If that conversion after the push fails, the run fails, and the maintainer returns the PR to Draft by hand: a rerun cannot tell that Ready from one a maintainer set after reviewing the new content.
+A rerun for the release that the PR already proposes pushes nothing and edits the PR's text only if it differs, which repairs a run that pushed but failed to edit.
+PRs from forks are ignored even when their branch has the same name.
+The push leases on the branch head that the run read, so it fails instead of replacing a branch that changed in the meantime.
+
+A change that requires consumer migration can fail the update, for example when the copied recipe no longer provides what the consumer's `dev-tools-sync` calls; the maintainer then migrates that consumer by hand.
+On a pull request that changes what reaches the consumers, the workflow prepares the update against the PR head as a dry run.
+The dry run reads only the consumer's pin, so the consumers' own update branches cannot fail it.
+It writes the PR body and the start of the patch to the job summary, and uploads the whole patch as the job's artifact.
+
+### Review of the bot's PRs
+
+The shared diff in a bot PR has already passed both self-review rounds and the independent review in this repository.
+The consumer review asks a different question: what the update changes for that repository, and whether the PR description is true there.
+A bot PR that contains only the workflow's commit therefore needs `self-review-round-two` and the consumer's current aggregate CI before Ready; round one and the independent review are not repeated.
+A maintainer commit on the update branch, such as a migration or an edit to guidance that names the pin, returns the PR to the full review flow, because that commit has not been reviewed anywhere.
+Each consumer records this rule in its own guidance.
+
+### Permissions and trust
+
+`flink-gcp-bot` is installed on each consumer with contents and pull-requests write.
+This repository keeps the App ID in the `BOT_APP_ID` variable and its private key in the `BOT_APP_PRIVATE_KEY` secret.
+The workflow mints a token for one consumer at a time, with only those two permissions.
+The workflow also names the App's bot user and its numeric user ID, which attribute the bot's commits; recreating the App changes both.
+
+The update runs the consumer's `dev-tools-sync` recipe from the consumer's default branch, which that consumer's own review already governs.
+That recipe runs in a separate prepare job with this repository's read-only `GITHUB_TOKEN` and no secrets.
+The propose job, which holds the App token, runs on a fresh runner where no consumer code has run: it decides again from GitHub's state, applies the prepared patch, checks again that it changes only the managed paths and names the tagged commit in both pins, and pushes.
+A compromised consumer branch can therefore shape the proposed patch and PR text within those checks, which its maintainers review, but cannot obtain the token.
+
+A pull request opened with an App token, unlike one opened with `GITHUB_TOKEN`, starts the consumer's `pull_request` workflows, so the bot's PR runs the consumer's required checks.
+
+### Versions and tags
+
+Releases start at `v0.1.0`, because two consumers already use this repository while its interfaces still change.
+While on 0.x, a change that requires consumer migration, such as a recipe name, the pin format, or the Hugo module's mounts, bumps the minor version.
+Every other change, such as a documentation fix or skill wording, bumps the patch version.
+Consider `v1.0.0` once the update workflow has proposed releases to the consumers and those interfaces have settled.
+Staying on 0.x until then also avoids the `/v2` module path that Go would require for a semantic `hugo/` tag at major version 2 or later.
+
+Only `vX.Y.Z` tags are created.
+Go recognizes only `hugo/`-prefixed tags as versions of the module in `hugo/`, so the consumers keep the commit pseudo-version in `docs/go.mod`, which needs no second tag.
+Consumers pin full SHAs, so the version tells readers about compatibility and does not change resolution.
+Each tag comes with a GitHub release and generated notes.
+
+The consumer list is the workflow's matrix, and the [inventory](../inventory.md#release-updates) lists what a consumer provides to join it.
