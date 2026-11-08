@@ -2,12 +2,13 @@
 
 This repository owns shared workflow skills, standard-library repository tools, a PR template, and a Hugo documentation module.
 Read `docs/adr/0001-share-development-assets.md` before changing distribution or ownership boundaries.
-Read `docs/inventory.md` before migrating a consumer.
+Read `docs/inventory.md` before migrating a consumer or adding one to the Update consumers workflow.
 
-- `just test` runs both test recipes below.
+- `just test` runs the three test recipes below.
 - `just test-install` executes installation scenarios in disposable Git repositories.
 - `just test-scripts` tests the shared Python tools with Python 3.14 and 3.11 through uv.
-- `just lint` checks workflows and Markdown.
+- `just test-workflow` tests the Update consumers steps against disposable repositories and a fake GitHub CLI.
+- `just lint` checks workflows, the installation and workflow scripts, and Markdown.
 - `just docs` builds the local Hugo module through the example site.
 - `just docs-chroma` regenerates the syntax palettes.
 - `just pin-actions` pins GitHub Actions references.

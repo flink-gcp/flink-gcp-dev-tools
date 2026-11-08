@@ -22,11 +22,15 @@ newest_python := "3.14"
 default:
     @just --list
 
-test: test-install test-scripts
+test: test-install test-scripts test-workflow
 
 # The installation tests exercise the recipe under Bash, so one Python is enough to drive them.
 test-install:
     uv run --locked --python {{ newest_python }} pytest tests/install
+
+# The workflow script is Bash, so one Python is enough to drive its tests with a fake GitHub CLI, just and Hugo.
+test-workflow:
+    uv run --locked --python {{ newest_python }} pytest tests/workflow
 
 # Consumers run the shared tools with their own Python, so test the newest one they pin and the lowest supported.
 # The second run uses a temporary environment so that it does not rebuild .venv for another Python.
@@ -47,6 +51,7 @@ docs-chroma:
 lint:
     mise x actionlint shellcheck -- actionlint
     just --justfile examples/dev-tools.just --show install-dev-tools | sed -n '/^[[:space:]]*#!/,$p' | sed 's/^    //' | mise x shellcheck -- shellcheck -
+    mise x shellcheck -- shellcheck .github/scripts/*.sh
     mise x rumdl -- rumdl check .
 
 pin-actions:

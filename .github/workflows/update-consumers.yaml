@@ -1,0 +1,160 @@
+# Copyright 2026 The flink-gcp authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Proposes each release to the consumers as a Draft update PR (ADR-0001); .github/scripts/update-consumer.sh
+# implements the steps. The prepare job runs the consumer's recipe without credentials, and the propose job
+# pushes its patch with the App token from a checkout where no consumer code ran.
+# A pull request here runs the prepare job against the PR head as a dry run.
+name: Update consumers
+on:
+  push:
+    tags: ['v*']
+  # Proposes the latest release again, for example after a blocking update branch was finished.
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/scripts/update-consumer.sh
+      - .github/workflows/update-consumers.yaml
+      - examples/dev-tools.just
+      - hugo/**
+      - scripts/*.py
+      - skills/**
+permissions: {}
+# Release runs go one at a time, so that no run decides from a state another run is changing. GitHub replaces a
+# pending run with the next one; the replacing run resolves the latest release when it starts, so nothing is lost.
+# Pull request dry runs cancel their superseded runs instead.
+concurrency:
+  group: update-consumers-${{ github.event_name == 'pull_request' && github.ref || 'release' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+defaults:
+  run:
+    shell: bash
+env:
+  BRANCH: dev-tools/update
+  # The App's bot user; its numeric user ID makes GitHub attribute the commits to it.
+  BOT_LOGIN: flink-gcp-bot[bot]
+  BOT_EMAIL: 317469580+flink-gcp-bot[bot]@users.noreply.github.com
+  SHARED_URL: ${{ github.server_url }}/${{ github.repository }}
+  EVENT: ${{ github.event_name }}
+  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  # The tag that started a release run, if any; the run proposes the latest release regardless.
+  TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+jobs:
+  prepare:
+    name: Prepare ${{ matrix.consumer }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # A new consumer joins with a line here and in the propose job; see docs/inventory.md.
+        consumer: [flink-connector-gcp, flink-datastream-protobuf]
+    env:
+      CONSUMER: ${{ github.repository_owner }}/${{ matrix.consumer }}
+      # The consumer's recipe downloads the public archive with this read-only token.
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.CONSUMER }}
+          path: consumer
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          install_args: just hugo-extended go
+      - name: Put the tools ahead of the mise shims
+        # A shim inside the consumer checkout would resolve the consumer's own mise configuration.
+        run: for tool in just hugo go; do dirname "$(mise which "$tool")"; done >> "$GITHUB_PATH"
+      - name: Resolve the release
+        run: .github/scripts/update-consumer.sh resolve
+      - name: Read the consumer's pin and update PR
+        id: state
+        run: .github/scripts/update-consumer.sh state
+      - name: Apply the update
+        if: steps.state.outputs.action != 'skip'
+        run: .github/scripts/update-consumer.sh apply
+      - name: Describe the update
+        if: steps.state.outputs.action != 'skip'
+        run: .github/scripts/update-consumer.sh describe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.state.outputs.action != 'skip'
+        with:
+          name: update-${{ matrix.consumer }}
+          path: ${{ runner.temp }}/update
+          retention-days: 1
+  propose:
+    name: Propose to ${{ matrix.consumer }}
+    needs: prepare
+    # One consumer's failed preparation must not hold back the others.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        consumer: [flink-connector-gcp, flink-datastream-protobuf]
+    env:
+      CONSUMER: ${{ github.repository_owner }}/${{ matrix.consumer }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      # The current default branch, not a commit named by the prepare job; the patch fails to apply if it moved.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ env.CONSUMER }}
+          path: consumer
+          persist-credentials: false
+      - name: Resolve the release
+        run: .github/scripts/update-consumer.sh resolve
+      # Decide again here: the prepare job's runner ran consumer code, so only its patch and text are used.
+      - name: Read the consumer's pin and update PR
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/update-consumer.sh state
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.state.outputs.action != 'skip'
+        with:
+          name: update-${{ matrix.consumer }}
+          path: ${{ runner.temp }}/update
+      - name: Mint an App token
+        if: steps.state.outputs.action != 'skip'
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ matrix.consumer }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Push the update and open or update the Draft PR
+        if: steps.state.outputs.action != 'skip'
+        env:
+          ACTION: ${{ steps.state.outputs.action }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: .github/scripts/update-consumer.sh push
