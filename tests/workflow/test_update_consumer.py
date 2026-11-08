@@ -137,7 +137,21 @@ class Workflow:
             "justfile": justfile(self.pinned),
             "dev-tools.just": "# recipe 1\n",
             "docs/go.mod": f"require module v0.0.0-20260101000000-{self.pinned[:12]}\n",
-            "docs/development.md": f"The site uses commit {self.pinned}.\n",
+            # Lines 2, 3, 5, 7, 9 and 10 name the pin only in permalinks; line 4 also names it outside one,
+            # and lines 6 and 8 name branches that start with it.
+            "docs/development.md": (f"The site uses commit {self.pinned}.\n"
+                                    f"[ADR-0002]({SHARED_URL}/blob/{self.pinned}/docs/adr/0002.md#notices) records it.\n"
+                                    f"The [module]({SHARED_URL}/tree/{self.pinned}#readme) is cited.\n"
+                                    f"The [module]({SHARED_URL}/tree/{self.pinned}/hugo) is at {self.pinned}.\n"
+                                    f"Source: <{SHARED_URL}/tree/{self.pinned}>\n"
+                                    f"Branch: {SHARED_URL}/tree/{self.pinned}-fix/README.md\n"
+                                    f"Source: {SHARED_URL}/blob/{self.pinned}\n"
+                                    f"Branch: {SHARED_URL}/tree/{self.pinned}+fix\n"
+                                    f"Both: {SHARED_URL}/tree/{self.pinned}/blob/{self.pinned}\n"
+                                    f"[a]({SHARED_URL}/tree/{self.pinned}) [{SHARED_URL}/tree/{self.pinned}] "
+                                    f"\"{SHARED_URL}/tree/{self.pinned}\" '{SHARED_URL}/tree/{self.pinned}' "
+                                    f"{SHARED_URL}/blob/{self.pinned}?plain=1 `{SHARED_URL}/tree/{self.pinned}` "
+                                    f"**{SHARED_URL}/tree/{self.pinned}** {SHARED_URL}/tree/{self.pinned} end\n"),
             ".github/PULL_REQUEST_TEMPLATE.md": "## WHAT\n<!-- what -->\n\n## WHY\n<!-- why -->\n",
         })
         git(self.consumer, "remote", "add", "origin", str(self.origin))
@@ -384,6 +398,10 @@ class TestPrepare:
         # The guidance that repeats the pin is listed; the justfile no longer names it.
         assert "These lines still name the previous commit" in body
         assert "- `docs/development.md:1`" in body
+        # A permalink keeps citing the text it was written against, so its line stays true.
+        assert not {"docs/development.md:2", "docs/development.md:3", "docs/development.md:5", "docs/development.md:7",
+                    "docs/development.md:9", "docs/development.md:10"} & set(body.split("`"))
+        assert all(f"- `docs/development.md:{line}`" in body for line in (4, 6, 8))
         assert "justfile" not in body.split("previous commit")[1].split("## WHY")[0]
         assert "\n## WHY\n\nflink-gcp-dev-tools released v0.1.0" in body
         summary = (workflow.runner / "github_step_summary").read_text()

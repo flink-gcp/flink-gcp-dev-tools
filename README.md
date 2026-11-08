@@ -77,7 +77,7 @@ When re-copying the file, make these changes in the same consumer PR:
 Each release tag `vX.Y.Z` here opens or updates a Draft PR named `Update flink-gcp-dev-tools to vX.Y.Z` in every consumer listed in the [`Update consumers`](.github/workflows/update-consumers.yaml) workflow, always for the latest release.
 The PR comes from the `dev-tools/update` branch, authored by `flink-gcp-bot`.
 It replaces `dev-tools.just` with the tagged commit's copy, moves `dev_tools_revision` to that commit and runs the sync as described above, and moves the Hugo module as described below, followed by `hugo mod tidy`.
-Its description links the shared changes since the previous pin and lists the consumer's lines that still name the previous commit.
+Its description links the shared changes since the previous pin and lists the consumer's lines that still name the previous commit outside `/blob/` and `/tree/` permalinks.
 The [ADR amendment](docs/adr/0001-share-development-assets.md#amendment-propose-each-release-to-the-consumers-from-a-bot) records how the bot behaves and how its PRs are reviewed, and the [inventory](docs/inventory.md#release-updates) lists what a consumer provides for it.
 
 In a consumer, write guidance that does not repeat the pinned SHA, so an update needs no manual edit.

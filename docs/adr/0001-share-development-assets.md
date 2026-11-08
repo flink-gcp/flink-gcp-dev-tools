@@ -104,6 +104,9 @@ The `Update consumers` workflow then proposes the latest release to each consume
 For each consumer it sets `dev_tools_revision` to that release's full commit SHA, replaces `dev-tools.just` with that commit's `examples/dev-tools.just`, runs `just dev-tools-sync`, and moves the Hugo module in `docs/` to the same commit with `hugo mod get` and `hugo mod tidy`.
 It commits the result to the branch `dev-tools/update` and opens or updates a Draft PR whose body fills the consumer's WHAT and WHY sections.
 The body links the shared changes since the previous pin and lists the consumer's lines that still name the previous commit, because guidance that states the current pin needs a manual edit.
+It leaves out a line that names the commit only in `/blob/` or `/tree/` permalinks, because a permalink cites a file as it read at that commit and stays true after the update.
+Only a path, fragment, query, whitespace, the end of the line, or a closing bracket, quote or Markdown delimiter ends such a permalink; a link whose SHA is followed by anything else, such as the `-` of a branch named `<sha>-fix`, is still listed, so an unusual link costs the reader a line instead of hiding one.
+A branch whose name continues the SHA with one of those closing characters is treated as a permalink, which no realistic link does.
 Commits on `main` that are not worth an update wait for the next tag, so the bot never proposes an untagged commit.
 
 The bot prepares the PR that a maintainer would otherwise write; it never marks the PR Ready or merges it.
