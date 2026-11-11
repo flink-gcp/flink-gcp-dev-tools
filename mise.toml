@@ -16,7 +16,7 @@
 just = "1"
 shellcheck = "0.11.0"
 actionlint = "1.7.12"
-rumdl = "0.3.2"
+rumdl = "0.3.3"
 hugo-extended = "0.164.0"
 go = "1.26"
 pinact = "4"
