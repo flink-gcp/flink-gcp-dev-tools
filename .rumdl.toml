@@ -14,7 +14,23 @@
 
 [global]
 include = ["README.md", "CONTRIBUTING.md", "AGENTS.md", "docs/**/*.md", "skills/**/*.md", "examples/site/content/**/*.md"]
-disable = ["MD013"]
+# The rules rumdl 0.3.8 runs by default, minus MD013 (line length). With the list, raising
+# the rumdl pin in mise.toml does not turn on the rules a new release enables by default:
+# such a rule stays off until it is added here, so read a release's new rules when raising
+# the pin. `just lint` fails on an unknown rule code here instead of skipping that rule.
+# MD043 and MD044 configure no headings or names, and MD078 and MD079 check only Quarto
+# and R Markdown files, so these four report nothing here.
+enable = [
+    "MD001", "MD003", "MD004", "MD005", "MD007", "MD009", "MD010", "MD011",
+    "MD012", "MD014", "MD018", "MD019", "MD020", "MD021", "MD022", "MD023",
+    "MD024", "MD025", "MD026", "MD027", "MD028", "MD029", "MD030", "MD031",
+    "MD032", "MD033", "MD034", "MD035", "MD036", "MD037", "MD038", "MD039",
+    "MD040", "MD041", "MD042", "MD043", "MD044", "MD045", "MD046", "MD047",
+    "MD048", "MD049", "MD050", "MD051", "MD052", "MD053", "MD054", "MD055",
+    "MD056", "MD057", "MD058", "MD059", "MD061", "MD062", "MD064", "MD065",
+    "MD066", "MD067", "MD068", "MD069", "MD071", "MD075", "MD076", "MD077",
+    "MD078", "MD079", "MD081", "MD086", "MD092", "MD094",
+]
 # Without this, every rumdl run leaves .rumdl_cache/ in the checkout.
 cache = false
 
