@@ -52,7 +52,7 @@ lint:
     mise x actionlint shellcheck -- actionlint
     just --justfile examples/dev-tools.just --show install-dev-tools | sed -n '/^[[:space:]]*#!/,$p' | sed 's/^    //' | mise x shellcheck -- shellcheck -
     mise x shellcheck -- shellcheck .github/scripts/*.sh
-    mise x rumdl -- rumdl check .
+    mise x rumdl -- rumdl check --deny-config-warnings .
 
 pin-actions:
     mise x pinact -- pinact run
